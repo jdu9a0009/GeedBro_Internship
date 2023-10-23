@@ -3,7 +3,60 @@ package helper
 import (
 	"errors"
 	"regexp"
+	"strings"
 )
+
+/*
+The password must be at least 8 characters long.
+The password must contain at least one uppercase letter.
+The password must contain at least one lowercase letter.
+The password must contain at least one digit.
+The password must contain at least one special character->
+
+	<-(e.g., ~!@#$%^&*()_+{}|:"<>?/[];',.).
+*/
+func IsValidPassword(password string) bool {
+	// Check if the password is at least 8 characters long
+	if len(password) < 8 {
+		return false
+	}
+
+	// Check if the password contains at least one uppercase letter
+	if !strings.ContainsAny(password, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		return false
+	}
+
+	// Check if the password contains at least one lowercase letter
+	if !strings.ContainsAny(password, "abcdefghijklmnopqrstuvwxyz") {
+		return false
+	}
+
+	// Check if the password contains at least one digit
+	if !strings.ContainsAny(password, "0123456789") {
+		return false
+	}
+
+	// Check if the password contains at least one special character
+	// (non-alphanumeric character)
+	match, _ := regexp.MatchString(`[~!@#$%^&*()_+{}|:"<>?/\[\]\;',\.]`, password)
+	if !match {
+		return false
+	}
+
+	return true
+}
+
+// IsValidPhone ...
+func IsValidPhone(phone string) bool {
+	r := regexp.MustCompile(`^\+998[0-9]{2}[0-9]{7}$`)
+	return r.MatchString(phone)
+}
+
+// IsValidLogin ...
+func IsValidLogin(login string) bool {
+	r := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{5,29}$`)
+	return r.MatchString(login)
+}
 
 func ValidPinfl(pinfl string) error {
 	if pinfl == "" {
@@ -29,22 +82,10 @@ func ValidPassportNumber(number string) error {
 	return nil
 }
 
-// IsValidPhone ...
-func IsValidPhone(phone string) bool {
-	r := regexp.MustCompile(`^\+998[0-9]{2}[0-9]{7}$`)
-	return r.MatchString(phone)
-}
-
 // IsValidEmail ...
 func IsValidEmail(email string) bool {
 	r := regexp.MustCompile(`^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$`)
 	return r.MatchString(email)
-}
-
-// IsValidLogin ...
-func IsValidLogin(login string) bool {
-	r := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{5,29}$`)
-	return r.MatchString(login)
 }
 
 // IsValidUUID ...

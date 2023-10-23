@@ -3,8 +3,8 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"time"
 	"user/api/handler/response"
-	"user/config"
 	"user/models"
 	"user/pkg/helper"
 	"user/pkg/logger"
@@ -13,98 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-// SignInUser godoc
-// @Router       /login [POST]
-// @Summary      Login in User
-// @Description  Login in User BASED ON GIVEN DATA
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        data  body      models.LoginRequest  true  "user data"
-// @Success      200  {string}  string
-// @Failure      400  {object}  response.ErrorResp
-// @Failure      404  {object}  response.ErrorResp
-// @Failure      500  {object}  response.ErrorResp
-func (h *Handler) Login(c *gin.Context) {
-	var req models.LoginRequest
-	err := c.ShouldBind(&req)
-	if err != nil {
-		h.log.Error("error while binding:", logger.Error(err))
-		c.JSON(http.StatusBadRequest, "invalid body")
-		return
-	}
-
-	resp, err := h.storage.User().GetByLogin(c.Request.Context(), &models.LoginRequest{
-		Username: req.Username,
-	})
-	if err != nil {
-		fmt.Println("error User GetByLogin:", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"not found login with:": req.Username})
-		return
-	}
-
-	if req.Password != resp.Password {
-		h.log.Error("error while binding:", logger.Error(err))
-		res := response.ErrorResp{Code: "INVALID Password", Message: "invalid password"}
-		c.JSON(http.StatusBadRequest, res)
-		return
-	}
-
-	m := make(map[string]interface{})
-	m["username"] = resp.Username
-	m["password"] = resp.Password
-	m["phone"] = resp.Phone
-
-	token, err := helper.GenerateJWT(m, config.TokenExpireTime, config.JWTSecretKey)
-	c.JSON(http.StatusCreated, models.LoginRes{Token: token})
-}
-
-// SignUpUser godoc
-// @Router       /signup [POST]
-// @Summary      SignUp User
-// @Description  SignUp User BASED ON GIVEN DATA
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        data  body      models.CreateUser  true  "user data"
-// @Success      200  {string}  string
-// @Failure      400  {object}  response.ErrorResp
-// @Failure      404  {object}  response.ErrorResp
-// @Failure      500  {object}  response.ErrorResp
-func (h *Handler) SignUp(c *gin.Context) {
-	var user models.CreateUser
-	err := c.ShouldBind(&user)
-	if err != nil {
-		h.log.Error("error while binding:", logger.Error(err))
-		c.JSON(http.StatusBadRequest, "invalid body")
-		return
-	}
-
-	if !helper.IsValidPhone(user.Phone) {
-		c.JSON(http.StatusBadRequest, "invalid body,You should write phone numb uzbek version")
-		return
-	}
-
-	_, err = h.storage.User().GetByLogin(c.Request.Context(), &models.LoginRequest{
-		Username: user.Username,
-	})
-
-	if err != nil {
-		resp, err := h.storage.User().CreateUser(c.Request.Context(), &user)
-		if err != nil {
-			h.log.Error("error Branch Create:", logger.Error(err))
-			c.JSON(http.StatusInternalServerError, "internal server error")
-			return
-		}
-		c.JSON(http.StatusCreated, response.CreateResponse{Message: "Succesfully created", Id: resp})
-	}
-
-	h.log.Error("error while binding:", logger.Error(err))
-	res := response.ErrorResp{Code: "INVALID Username", Message: "This username  was used enter an other username"}
-	c.JSON(http.StatusBadRequest, res)
-	return
-}
 
 // CreateUser godoc
 // @Router       /user [POST]
@@ -120,17 +28,20 @@ func (h *Handler) SignUp(c *gin.Context) {
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) CreateUser(c *gin.Context) {
 	var user models.CreateUser
-	err := c.ShouldBind(&user)
+	fmt.Println("Before Handler", user)
+
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Println("After Handler", user)
+	hashedPass, err := helper.GeneratePasswordHash(user.Password)
 	if err != nil {
-		h.log.Error("error while binding:", logger.Error(err))
+		h.log.Error("error while generating hash password:", logger.Error(err))
 		c.JSON(http.StatusBadRequest, "invalid body")
 		return
 	}
-
-	// if !isvalid0hon(user.phone) {
-	// c.JSON(http.StatusBadRequest, "invalid phone)
-	// 	return
-	// }
+	user.Password = string(hashedPass)
 
 	resp, err := h.storage.User().CreateUser(c.Request.Context(), &user)
 	if err != nil {
@@ -154,16 +65,30 @@ func (h *Handler) CreateUser(c *gin.Context) {
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) GetUser(c *gin.Context) {
+	user := models.User{}
 	id := c.Param("id")
+	ok, err := h.redisStorage.Cache().Get(c.Request.Context(), id, user)
+	if err != nil {
+		fmt.Println("not found staff in redis cache")
+	}
 
+	if ok {
+		c.JSON(http.StatusOK, user)
+		return
+	}
 	resp, err := h.storage.User().GetUser(c.Request.Context(), &models.IdRequest{Id: id})
 	if err != nil {
-		h.log.Error("error Branch Get:", logger.Error(err))
+		h.log.Error("error User Get:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
+
+	err = h.redisStorage.Cache().Create(c.Request.Context(), id, resp, time.Hour)
+	if err != nil {
+		fmt.Println("error User Create in redis cache:", err.Error())
+	}
 }
 
 // GetAllUsers godoc
@@ -182,7 +107,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) GetAllUser(c *gin.Context) {
 	h.log.Info("request GetAllUser")
-	page, err := strconv.Atoi(c.DefaultQuery("page", "fmt.sprintf(`%d`,cfg.DefaultPage)"))
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
 		h.log.Error("error getting page:", logger.Error(err))
 		c.JSON(http.StatusBadRequest, "invalid page param")
@@ -196,9 +121,9 @@ func (h *Handler) GetAllUser(c *gin.Context) {
 	}
 
 	resp, err := h.storage.User().GetAllUser(c.Request.Context(), &models.GetAllUserRequest{
-		Page:  page,
-		Limit: limit,
-		Name:  c.Query("search"),
+		Page:     page,
+		Limit:    limit,
+		UserName: c.Query("search"),
 	})
 	if err != nil {
 		h.log.Error("error Branch GetAllBUser:", logger.Error(err))
@@ -240,6 +165,11 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User successfully updated", "id": resp})
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), user.ID)
+	if err != nil {
+		fmt.Println("error User Create in redis cache:", err.Error())
+	}
+
 }
 
 // DeleteUser godoc
@@ -265,4 +195,56 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User successfully deleted", "id": resp})
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), id)
+	if err != nil {
+		fmt.Println("error User Create in redis cache:", err.Error())
+	}
 }
+
+// func (h *Handler) ChangePassword(c *gin.Context) {
+// 	var req models.ChangePassword
+// 	id := c.Param("id")
+// 	err := c.ShouldBindJSON(&req)
+// 	if err != nil {
+// 		h.log.Error("Error While binding", logger.Error(err))
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+// 		return
+// 	}
+
+// 	Id := c.Param("id")
+
+// 	user, err := h.storage.User().GetUser(c.Request.Context(), &models.IdRequest{Id: Id})
+// 	if err != nil {
+// 		h.log.Error("Error User get in change password: ", logger.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get User fro deleting change balance"})
+// 		return
+// 	}
+
+// 	err = helper.ComparePasswords([]byte(user.Password), []byte(req.OldPassword))
+// 	if err != nil {
+// 		h.log.Error("Error User Password : ", logger.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to match password"})
+// 		return
+// 	}
+// 	newHashPass, err := helper.GeneratePasswordHash(req.NewPassword)
+// 	if err != nil {
+// 		h.log.Error("Error User Password hashing : ", logger.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to Hashing password"})
+// 		return
+// 	}
+// 	resp, err := h.storage.User().ChangePassword(c.Request.Context(), &models.ReqNewPassword{
+// 		Id:       Id,
+// 		Password: string(newHashPass),
+// 	})
+// 	if err != nil {
+// 		h.log.Error("Error To sending hashed password and id: ", logger.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed sending staff;s new password and id"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "Password successfully Changed", "id": resp})
+// 	err = h.redisStorage.Cache().Delete(c.Request.Context(), id)
+// 	if err != nil {
+// 		fmt.Println("error User Delete in redis cache:", err.Error())
+// 	}
+// }

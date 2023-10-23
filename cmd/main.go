@@ -8,6 +8,7 @@ import (
 	"user/config"
 	"user/pkg/logger"
 	"user/storage/postgres"
+	"user/storage/redis"
 )
 
 func main() {
@@ -19,7 +20,11 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	h := handler.NewHandler(strg, log)
+	redisStrg, err := redis.NewCache(context.Background(), cfg)
+	if err != nil {
+		return
+	}
+	h := handler.NewHandler(strg, redisStrg, log)
 
 	r := api.NewServer(h)
 	r.Run(cfg.Port)

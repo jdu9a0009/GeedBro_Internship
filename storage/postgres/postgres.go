@@ -12,6 +12,7 @@ import (
 type store struct {
 	db    *pgxpool.Pool
 	users *userRepo
+	posts *postRepo
 }
 
 func NewStorage(ctx context.Context, cfg config.Config) (storage.StorageI, error) {
@@ -44,6 +45,12 @@ func (b *store) User() storage.UsersI {
 		b.users = NewUserRepo(b.db)
 	}
 	return b.users
+}
+func (b *store) Post() storage.PostI {
+	if b.posts == nil {
+		b.posts = NewPostRepo(b.db)
+	}
+	return b.posts
 }
 
 func (s *store) Close() {

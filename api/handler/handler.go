@@ -6,11 +6,12 @@ import (
 )
 
 type Handler struct {
-	storage storage.StorageI
+	storage      storage.StorageI
+	redisStorage storage.CacheI
 
 	log logger.LoggerI
 }
 
-func NewHandler(strg storage.StorageI, loger logger.LoggerI) *Handler {
-	return &Handler{storage: strg, log: loger}
+func NewHandler(strg storage.StorageI, redisStrg storage.CacheI, loger logger.LoggerI) *Handler {
+	return &Handler{storage: strg, redisStorage: redisStrg, log: loger}
 }
