@@ -20,7 +20,7 @@ type UsersI interface {
 	GetAllUser(context.Context, *models.GetAllUserRequest) (*models.GetAllUser, error)
 	UpdateUser(context.Context, *models.User) (string, error)
 	DeleteUser(context.Context, *models.IdRequest) (string, error)
-
+	GetByLogin(context.Context, *models.LoginRequest) (*models.LoginDataRespond, error)
 	GetAllDeletedUser(context.Context, *models.GetAllUserRequest) (*models.GetAllUser, error)
 }
 

@@ -26,6 +26,7 @@ func NewPostRepo(db *pgxpool.Pool) *postRepo {
 
 func (u *postRepo) CreatePost(ctx context.Context, req *models.CreatePost) (string, error) {
 	id := uuid.NewString()
+	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	query := `INSERT INTO posts(
 	                        id,
@@ -39,7 +40,7 @@ func (u *postRepo) CreatePost(ctx context.Context, req *models.CreatePost) (stri
 		id,
 		req.Description,
 		req.Photos,
-		req.UserId,
+		TokenUser.UserID,
 	)
 
 	if err != nil {
@@ -53,10 +54,6 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
 	var (
 		createdAt sql.NullTime
 		createdBy sql.NullString
-		updatedAt sql.NullTime
-		updatedBy sql.NullString
-		deletedAt sql.NullTime
-		deletedBy sql.NullString
 	)
 
 	query := `SELECT 
@@ -64,11 +61,7 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
                     description,
                     photos,
                     created_at,
-					created_by,
-                    updated_at,
-					updated_by,
-                    deleted_at,
-					deleted_by
+					created_by
 				FROM
 				    posts
             	WHERE
@@ -83,30 +76,12 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
 		&post.Photos,
 		&createdAt,
 		&createdBy,
-		&updatedAt,
-		&updatedBy,
-		&deletedAt,
-		&deletedBy,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Post not found")
 	}
 	post.CreatedAt = createdAt.Time.Format(time.RFC3339)
 	post.CreatedBy = createdBy.String
-
-	if updatedBy.Valid {
-		post.UpdatedBy = updatedBy.String
-	}
-	if deletedBy.Valid {
-		post.DeletedBy = deletedBy.String
-	}
-	if updatedAt.Valid {
-		post.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
-	}
-
-	if deletedAt.Valid {
-		post.DeletedAt = deletedAt.Time.Format(time.RFC3339)
-	}
 
 	return &post, nil
 }
@@ -116,9 +91,7 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 	filter := ""
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
-	updatedAt := sql.NullTime{}
 	createdBy := sql.NullString{}
-	updatedBy := sql.NullString{}
 
 	s := `
 	SELECT 
@@ -126,13 +99,11 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 		description,
 		photos,
 		created_at,
-		created_by,
-		updated_at,
-		updated_by
+		created_by
 	FROM
 		posts
 	WHERE
-		deleted_at IS NULL
+		deleted_at IS  NULL
 	`
 
 	if req.Search != "" {
@@ -162,19 +133,14 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 			&post.Photos,
 			&createdAt,
 			&createdBy,
-			&updatedAt,
-			&updatedBy,
 		)
 		if err != nil {
 			return nil, err
 		}
 		post.CreatedAt = createdAt.Format(time.RFC3339)
-		if updatedBy.Valid {
-			post.UpdatedBy = updatedBy.String
-		}
 
-		if updatedAt.Valid {
-			post.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
+		if createdBy.Valid {
+			post.CreatedBy = createdBy.String
 		}
 
 		resp.Posts = append(resp.Posts, post)
@@ -186,12 +152,10 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 
 func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
 	params := make(map[string]interface{})
-	filter := ""
+	filter := fmt.Sprintf(` WHERE deleted_at IS NULL AND created_by = '%s'`, req.Search)
 	// offset := (req.Page - 1) * req.Limite/
 	createdAt := time.Time{}
-	updatedAt := sql.NullTime{}
 	createdBy := sql.NullString{}
-	updatedBy := sql.NullString{}
 	fmt.Println(req)
 	s := `
 	SELECT 
@@ -199,9 +163,7 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 		description,
 		photos,
 		created_at,
-		created_by,
-		updated_at,
-		updated_by
+		created_by
 	FROM
 		posts
 		WHERE
@@ -237,20 +199,11 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 			&post.Photos,
 			&createdAt,
 			&createdBy,
-			&updatedAt,
-			&updatedBy,
 		)
 		if err != nil {
 			return nil, err
 		}
 		post.CreatedAt = createdAt.Format(time.RFC3339)
-		if updatedBy.Valid {
-			post.UpdatedBy = updatedBy.String
-		}
-
-		if updatedAt.Valid {
-			post.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
-		}
 
 		resp.Posts = append(resp.Posts, post)
 	}
@@ -261,12 +214,10 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 
 func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
 	params := make(map[string]interface{})
-	filter := ""
+	filter := ` `
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
-	updatedAt := sql.NullTime{}
 	createdBy := sql.NullString{}
-	updatedBy := sql.NullString{}
 
 	s := `
 	SELECT 
@@ -274,14 +225,10 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 		description,
 		photos,
 		created_at,
-		created_by,
-		updated_at,
-		updated_by
+		created_by
 	FROM
 		posts
-	WHERE
-		deleted_at IS NOT NULL
-	`
+		where deleted_at IS  NOT NULL`
 
 	if req.Search != "" {
 		filter += ` AND description ILIKE '%' || :search || '%' `
@@ -310,20 +257,12 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 			&post.Photos,
 			&createdAt,
 			&createdBy,
-			&updatedAt,
-			&updatedBy,
 		)
 		if err != nil {
 			return nil, err
 		}
 		post.CreatedAt = createdAt.Format(time.RFC3339)
-		if updatedBy.Valid {
-			post.UpdatedBy = updatedBy.String
-		}
-
-		if updatedAt.Valid {
-			post.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
-		}
+		post.CreatedBy = createdBy.String
 
 		resp.Posts = append(resp.Posts, post)
 	}
@@ -333,6 +272,7 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 }
 
 func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (string, error) {
+	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	query := `
 			UPDATE "posts" 
@@ -348,7 +288,7 @@ func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (stri
 		query,
 		req.Description,
 		req.Photos,
-		req.UpdatedBy,
+		TokenUser.UserID,
 		req.ID,
 	)
 
@@ -364,6 +304,7 @@ func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (stri
 }
 
 func (b *postRepo) DeletePost(ctx context.Context, req *models.DeletePostRequest) (resp string, err error) {
+	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	query := `
 	 	UPDATE "posts" 
@@ -377,7 +318,7 @@ func (b *postRepo) DeletePost(ctx context.Context, req *models.DeletePostRequest
 	result, err := b.db.Exec(
 		context.Background(),
 		query,
-		req.DeletedBy,
+		TokenUser.UserID,
 		req.Id,
 	)
 	if err != nil {

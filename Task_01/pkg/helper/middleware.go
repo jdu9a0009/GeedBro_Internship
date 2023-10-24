@@ -64,10 +64,10 @@ func afterRequest(c *gin.Context) {
 
 func AuthMiddleware(c *gin.Context) {
 	// Get the Authorization header from the request
-	clientToken := c.Request.Header.Get("Authorization")
+	clientToken := c.GetHeader("Authorization")
 	if clientToken == "" {
 		// If the Authorization header is not present, return a 403 status code
-		c.JSON(403, "No Authorization header provided")
+		c.JSON(403, "No Authorization token found...")
 		c.Abort()
 		return
 	}
@@ -76,6 +76,7 @@ func AuthMiddleware(c *gin.Context) {
 	if err != nil {
 		fmt.Println("error Parsing middleware :", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Abort()
 		return
 	}
 	//set the claims in the context

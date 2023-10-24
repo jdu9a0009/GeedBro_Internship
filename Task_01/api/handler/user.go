@@ -15,6 +15,7 @@ import (
 )
 
 // CreateUser godoc
+// @Security ApiKeyAuth
 // @Router       /user [POST]
 // @Summary      CREATES User
 // @Description  CREATES User BASED ON GIVEN DATA
@@ -53,6 +54,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 }
 
 // Get user godoc
+// @Security ApiKeyAuth
 // @Router       /user/{id} [GET]
 // @Summary      GET BY ID
 // @Description  get user by ID
@@ -92,6 +94,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 }
 
 // GetAllUsers godoc
+// @Security ApiKeyAuth
 // @Router       /user [GET]
 // @Summary      GET  ALL Users
 // @Description  get all users based on limit, page and search by username
@@ -135,6 +138,7 @@ func (h *Handler) GetAllUser(c *gin.Context) {
 }
 
 // GetAllDeletedUsers godoc
+// @Security ApiKeyAuth
 // @Router       /deleted_users [GET]
 // @Summary      GET  ALL Users
 // @Description  get all users based on limit, page and search by name
@@ -163,7 +167,7 @@ func (h *Handler) GetAllDeletedUser(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storage.User().GetAllUser(c.Request.Context(), &models.GetAllUserRequest{
+	resp, err := h.storage.User().GetAllDeletedUser(c.Request.Context(), &models.GetAllUserRequest{
 		Page:     page,
 		Limit:    limit,
 		UserName: c.Query("search"),
@@ -178,13 +182,13 @@ func (h *Handler) GetAllDeletedUser(c *gin.Context) {
 }
 
 // UpdateUser godoc
-// @Router       /user/{id} [PUT]
+// @Security ApiKeyAuth
+// @Router       /user [PUT]
 // @Summary      UPDATE user BY ID
 // @Description  UPDATES user BASED ON GIVEN DATA AND ID
 // @Tags         user
 // @Accept       json
 // @Produce      json
-// @Param        id    path     string  true  "id of user" format(uuid)
 // @Param        data  body      models.CreateUser  true  "user data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
@@ -199,8 +203,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user.ID = c.Param("id")
-	resp, err := h.storage.User().UpdateUser(c.Request.Context(), &user)
+	resp, err := h.storage.User().UpdateUser(c, &user)
 	if err != nil {
 		h.log.Error("error updating user:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
@@ -216,13 +219,13 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 }
 
 // DeleteUser godoc
-// @Router       /user/{id} [DELETE]
+// @Security ApiKeyAuth
+// @Router       /user [DELETE]
 // @Summary      DELETE user BY ID
 // @Description  DELETES user BASED ON ID
 // @Tags         user
 // @Accept       json
 // @Produce      json
-// @Param        id    path     string  true  "id of user" format(uuid)
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
@@ -230,7 +233,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 func (h *Handler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 
-	resp, err := h.storage.User().DeleteUser(c.Request.Context(), &models.IdRequest{Id: id})
+	resp, err := h.storage.User().DeleteUser(c, &models.IdRequest{Id: id})
 	if err != nil {
 		h.log.Error("error deleting user:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete branch"})
@@ -243,51 +246,3 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		fmt.Println("error User Create in redis cache:", err.Error())
 	}
 }
-
-// func (h *Handler) ChangePassword(c *gin.Context) {
-// 	var req models.ChangePassword
-// 	id := c.Param("id")
-// 	err := c.ShouldBindJSON(&req)
-// 	if err != nil {
-// 		h.log.Error("Error While binding", logger.Error(err))
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-// 		return
-// 	}
-
-// 	Id := c.Param("id")
-
-// 	user, err := h.storage.User().GetUser(c.Request.Context(), &models.IdRequest{Id: Id})
-// 	if err != nil {
-// 		h.log.Error("Error User get in change password: ", logger.Error(err))
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get User fro deleting change balance"})
-// 		return
-// 	}
-
-// 	err = helper.ComparePasswords([]byte(user.Password), []byte(req.OldPassword))
-// 	if err != nil {
-// 		h.log.Error("Error User Password : ", logger.Error(err))
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to match password"})
-// 		return
-// 	}
-// 	newHashPass, err := helper.GeneratePasswordHash(req.NewPassword)
-// 	if err != nil {
-// 		h.log.Error("Error User Password hashing : ", logger.Error(err))
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to Hashing password"})
-// 		return
-// 	}
-// 	resp, err := h.storage.User().ChangePassword(c.Request.Context(), &models.ReqNewPassword{
-// 		Id:       Id,
-// 		Password: string(newHashPass),
-// 	})
-// 	if err != nil {
-// 		h.log.Error("Error To sending hashed password and id: ", logger.Error(err))
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed sending staff;s new password and id"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "Password successfully Changed", "id": resp})
-// 	err = h.redisStorage.Cache().Delete(c.Request.Context(), id)
-// 	if err != nil {
-// 		fmt.Println("error User Delete in redis cache:", err.Error())
-// 	}
-// }

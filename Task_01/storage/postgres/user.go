@@ -54,8 +54,7 @@ func (u userRepo) GetUser(ctx context.Context, req *models.IdRequest) (rep *mode
                     password,
                     is_active,
                     created_at,
-                    updated_at,
-                    deleted_at
+
 				FROM
 				    users
 				WHERE
@@ -63,9 +62,7 @@ func (u userRepo) GetUser(ctx context.Context, req *models.IdRequest) (rep *mode
 				    id = $1;`
 
 	var (
-		createdAt  sql.NullTime
-		updatedAt  sql.NullTime
-		deleted_at sql.NullTime
+		createdAt sql.NullTime
 	)
 	user := models.User{}
 
@@ -75,27 +72,18 @@ func (u userRepo) GetUser(ctx context.Context, req *models.IdRequest) (rep *mode
 		&user.Password,
 		&user.IsActive,
 		&createdAt,
-		&updatedAt,
-		&deleted_at,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
 	user.CreatedAt = createdAt.Time.Format(time.RFC3339)
-	if updatedAt.Valid {
-		user.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
-	}
-
-	if deleted_at.Valid {
-		user.DeletedAt = deleted_at.Time.Format(time.RFC3339)
-	}
-
 	return &user, nil
 }
 
 func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest) (resp *models.GetAllUser, err error) {
 	params := make(map[string]interface{})
-	filter := "WHERE is_Active=true"
+	filter := `   WHERE is_active `
+	resp = &models.GetAllUser{}
 	resp.Users = make([]models.User, 0)
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
@@ -119,7 +107,7 @@ func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest
 	params["limit"] = req.Limit
 	params["offset"] = offset
 
-	query = query + filter + "ORDER BY created_at desc OFFSET :offset LIMIT :limit"
+	query = query + filter + "ORDER BY created_at desc  LIMIT :limit OFFSET :offset"
 	resQuery, pArr := helper.ReplaceQueryParams(query, params)
 
 	rows, err := u.db.Query(context.Background(), resQuery, pArr...)
@@ -127,10 +115,11 @@ func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest
 		return nil, err
 	}
 	defer rows.Close()
-
+	count := 0
 	for rows.Next() {
 		var user models.User
 		err := rows.Scan(
+			&count,
 			&user.ID,
 			&user.Username,
 			&user.Password,
@@ -145,7 +134,7 @@ func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest
 		if updatedAt.Valid {
 			user.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
 		}
-
+		resp.Count = count
 		resp.Users = append(resp.Users, user)
 	}
 
@@ -154,14 +143,18 @@ func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest
 
 func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUserRequest) (resp *models.GetAllUser, err error) {
 	params := make(map[string]interface{})
-	filter := "WHERE is_Active=false"
+	filter := ""
+
+	resp = &models.GetAllUser{}
+
 	resp.Users = make([]models.User, 0)
+
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
 	updatedAt := sql.NullTime{}
 	deletedAt := sql.NullTime{}
-	deletedBy := sql.NullString{}
 
+	fmt.Println("storage", req)
 	query := `SELECT 
 	               COUNT(*) OVER(),
 	               id,
@@ -170,9 +163,10 @@ func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUser
 				   is_active,
 				   created_at,
 				   updated_at,
-				   deleted_at,
-				   deleted_by
-			FROM users`
+				   deleted_at
+				   
+			FROM users
+			WHERE deleted_at is not null`
 
 	if req.UserName != "" {
 		filter += ` AND username ILIKE '%' || :search || '%' `
@@ -182,7 +176,7 @@ func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUser
 	params["limit"] = req.Limit
 	params["offset"] = offset
 
-	query = query + filter + "ORDER BY created_at desc OFFSET :offset LIMIT :limit"
+	query = query + filter + " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
 	resQuery, pArr := helper.ReplaceQueryParams(query, params)
 
 	rows, err := u.db.Query(context.Background(), resQuery, pArr...)
@@ -190,10 +184,11 @@ func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUser
 		return nil, err
 	}
 	defer rows.Close()
-
+	count := 0
 	for rows.Next() {
 		var user models.User
 		err := rows.Scan(
+			&count,
 			&user.ID,
 			&user.Username,
 			&user.Password,
@@ -201,7 +196,6 @@ func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUser
 			&createdAt,
 			&updatedAt,
 			&deletedAt,
-			&deletedBy,
 		)
 		if err != nil {
 			return nil, err
@@ -213,20 +207,20 @@ func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUser
 
 		resp.Users = append(resp.Users, user)
 	}
-
+	resp.Count = count
 	return resp, nil
 }
 
 func (u *userRepo) UpdateUser(ctx context.Context, req *models.User) (string, error) {
-
+	TokenInfo := ctx.Value("user_info").(helper.TokenInfo)
 	query := `UPDATE users SET 
 					  username = $1, 
 					  password = $2, 
 					  updated_at = NOW() 
 					  WHERE 
-					  "is_active" = true AND 
+					  "is_active"  AND 
 					  id = $3 RETURNING id`
-	result, err := u.db.Exec(ctx, query, req.Username, req.Password, req.ID)
+	result, err := u.db.Exec(context.Background(), query, req.Username, req.Password, TokenInfo.UserID)
 	if err != nil {
 		return "Error Update User", err
 	}
@@ -239,6 +233,8 @@ func (u *userRepo) UpdateUser(ctx context.Context, req *models.User) (string, er
 }
 
 func (b *userRepo) DeleteUser(c context.Context, req *models.IdRequest) (resp string, err error) {
+	TokenInfo := c.Value("user_info").(helper.TokenInfo)
+
 	query := `
 	 	UPDATE "users" 
 		SET 
@@ -252,7 +248,7 @@ func (b *userRepo) DeleteUser(c context.Context, req *models.IdRequest) (resp st
 		context.Background(),
 		query,
 		false,
-		req.Id,
+		TokenInfo.UserID,
 	)
 	if err != nil {
 		return "", err
@@ -266,26 +262,26 @@ func (b *userRepo) DeleteUser(c context.Context, req *models.IdRequest) (resp st
 	return req.Id, nil
 }
 
-// func (u *userRepo) GetByLogin(ctx context.Context, req *models.LoginRequest) (*models.LoginRespond, error) {
-// 	query := `SELECT
-// 		id,
-// 		username,
-// 		password
-// 	FROM users
-// 	WHERE username = $1`
+func (u *userRepo) GetByLogin(ctx context.Context, req *models.LoginRequest) (*models.LoginDataRespond, error) {
+	query := `SELECT
+		id,
+		username,
+		password
+	FROM users
+	WHERE username = $1`
 
-// 	user := models.LoginRespond{}
-// 	err := u.db.QueryRow(context.Background(), query, req.Username).Scan(
-// 		&user.ID,
-// 		&user.Username,
-// 		&user.Password,
-// 	)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, fmt.Errorf("user not found")
-// 		}
-// 		return nil, err
-// 	}
+	user := models.LoginDataRespond{}
+	err := u.db.QueryRow(context.Background(), query, req.Username).Scan(
+		&user.UserId,
+		&user.Username,
+		&user.Password,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
 
-// 	return &user, nil
-// }
+	return &user, nil
+}

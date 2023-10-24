@@ -10,8 +10,7 @@ import (
 )
 
 type TokenInfo struct {
-	UserID   string `json:"user_id"`
-	BranchID string `json:"branch_id"`
+	UserID string `json:"user_id"`
 }
 
 // GenerateJWT ...
@@ -46,15 +45,11 @@ func ParseClaims(token string, secretKey string) (result TokenInfo, err error) {
 	}
 
 	result.UserID = cast.ToString(claims["user_id"])
-	result.BranchID = cast.ToString(claims["branch_id"])
 	if len(result.UserID) <= 0 {
 		err = errors.New("cannot parse 'user_id' field")
 		return result, err
 	}
-	if len(result.BranchID) <= 0 {
-		err = errors.New("cannot parse 'user_id' field")
-		return result, err
-	}
+
 	return
 }
 

@@ -1,8 +1,6 @@
 definitions:
   models.CreatePost:
     properties:
-      created_by:
-        type: string
       description:
         type: string
       photos:
@@ -19,8 +17,6 @@ definitions:
     type: object
   models.DeletePostRequest:
     properties:
-      deleted_by:
-        type: string
       id:
         type: string
     type: object
@@ -42,15 +38,18 @@ definitions:
           $ref: '#/definitions/models.User'
         type: array
     type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
   models.Post:
     properties:
       created_at:
         type: string
       created_by:
-        type: string
-      deleted_at:
-        type: string
-      deleted_by:
         type: string
       description:
         type: string
@@ -60,10 +59,6 @@ definitions:
         items:
           type: string
         type: array
-      updated_at:
-        type: string
-      updated_by:
-        type: string
     type: object
   models.UpdatePost:
     properties:
@@ -75,8 +70,6 @@ definitions:
         items:
           type: string
         type: array
-      updated_by:
-        type: string
     type: object
   models.User:
     properties:
@@ -105,6 +98,74 @@ definitions:
 info:
   contact: {}
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: login User BASED ON GIVEN DATA
+      parameters:
+      - description: user data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: login User
+      tags:
+      - auth
+  /auth/sign-up:
+    post:
+      consumes:
+      - application/json
+      description: Sign Up User BASED ON GIVEN DATA
+      parameters:
+      - description: user data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: Sign Up User
+      tags:
+      - auth
   /deleted_posts:
     get:
       consumes:
@@ -146,6 +207,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET  ALL Posts
       tags:
       - post
@@ -190,6 +253,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET  ALL Users
       tags:
       - user
@@ -224,6 +289,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET BY ID
       tags:
       - post
@@ -258,6 +325,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: DELETE post BY ID
       tags:
       - post
@@ -301,6 +370,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET  ALL Posts
       tags:
       - post
@@ -334,41 +405,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: Creat new post
-      tags:
-      - post
-  /post/{id}:
-    get:
-      consumes:
-      - application/json
-      description: get post by PostID
-      parameters:
-      - description: post ID
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Post'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-      summary: GET BY ID
       tags:
       - post
     put:
@@ -407,10 +446,76 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: UPDATE post BY ID
       tags:
       - post
+  /post/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get post by PostID
+      parameters:
+      - description: post ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET BY ID
+      tags:
+      - post
   /user:
+    delete:
+      consumes:
+      - application/json
+      description: DELETES user BASED ON ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: DELETE user BY ID
+      tags:
+      - user
     get:
       consumes:
       - application/json
@@ -451,6 +556,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET  ALL Users
       tags:
       - user
@@ -484,21 +591,22 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: CREATES User
       tags:
       - user
-  /user/{id}:
-    delete:
+    put:
       consumes:
       - application/json
-      description: DELETES user BASED ON ID
+      description: UPDATES user BASED ON GIVEN DATA AND ID
       parameters:
-      - description: id of user
-        format: uuid
-        in: path
-        name: id
+      - description: user data
+        in: body
+        name: data
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/models.CreateUser'
       produces:
       - application/json
       responses:
@@ -518,9 +626,12 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
-      summary: DELETE user BY ID
+      security:
+      - ApiKeyAuth: []
+      summary: UPDATE user BY ID
       tags:
       - user
+  /user/{id}:
     get:
       consumes:
       - application/json
@@ -551,46 +662,14 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
       summary: GET BY ID
       tags:
       - user
-    put:
-      consumes:
-      - application/json
-      description: UPDATES user BASED ON GIVEN DATA AND ID
-      parameters:
-      - description: id of user
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: user data
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/models.CreateUser'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-      summary: UPDATE user BY ID
-      tags:
-      - user
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

@@ -15,6 +15,7 @@ import (
 )
 
 // CreatePost godoc
+// @Security ApiKeyAuth
 // @Router       /post [POST]
 // @Summary      Creat new post
 // @Description  creates a new post based on the given postname ad password
@@ -35,7 +36,7 @@ func (h *Handler) CreatePost(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storage.Post().CreatePost(c.Request.Context(), &post)
+	resp, err := h.storage.Post().CreatePost(c, &post)
 	if err != nil {
 		h.log.Error("error Post Create:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, "internal server error")
@@ -45,6 +46,7 @@ func (h *Handler) CreatePost(c *gin.Context) {
 }
 
 // Get post godoc
+// @Security ApiKeyAuth
 // @Router       /post/{id} [GET]
 // @Summary      GET BY ID
 // @Description  get post by PostID
@@ -68,7 +70,7 @@ func (h *Handler) GetPost(c *gin.Context) {
 		c.JSON(http.StatusOK, post)
 		return
 	}
-	resp, err := h.storage.Post().GetPost(c.Request.Context(), &models.IdRequest{Id: id})
+	resp, err := h.storage.Post().GetPost(c, &models.IdRequest{Id: id})
 	if err != nil {
 		h.log.Error("error Post Get:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, err.Error())
@@ -84,6 +86,7 @@ func (h *Handler) GetPost(c *gin.Context) {
 }
 
 // GetAllPosts godoc
+// @Security ApiKeyAuth
 // @Router       /post [GET]
 // @Summary      GET  ALL Posts
 // @Description  get all posts based on limit, page and search by postname
@@ -112,7 +115,7 @@ func (h *Handler) GetAllPost(c *gin.Context) {
 		return
 	}
 	username := c.Query("search")
-	resp, err := h.storage.Post().GetAllPost(c.Request.Context(), &models.GetAllPostRequest{
+	resp, err := h.storage.Post().GetAllPost(c, &models.GetAllPostRequest{
 		Page:   page,
 		Limit:  limit,
 		Search: username,
@@ -128,7 +131,8 @@ func (h *Handler) GetAllPost(c *gin.Context) {
 }
 
 // UpdatePost godoc
-// @Router       /post/{id} [PUT]
+// @Security ApiKeyAuth
+// @Router       /post [PUT]
 // @Summary      UPDATE post BY ID
 // @Description  UPDATES post BASED ON GIVEN DATA AND ID
 // @Tags         post
@@ -149,8 +153,7 @@ func (h *Handler) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	// post.ID = c.Param("id")
-	resp, err := h.storage.Post().UpdatePost(c.Request.Context(), &post)
+	resp, err := h.storage.Post().UpdatePost(c, &post)
 	if err != nil {
 		h.log.Error("error updating post:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update post"})
@@ -166,6 +169,7 @@ func (h *Handler) UpdatePost(c *gin.Context) {
 }
 
 // DeletePost godoc
+// @Security ApiKeyAuth
 // @Router       /post [DELETE]
 // @Summary      DELETE post BY ID
 // @Description  DELETES post BASED ON ID
@@ -185,9 +189,8 @@ func (h *Handler) DeletePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	resp, err := h.storage.Post().DeletePost(c.Request.Context(), &models.DeletePostRequest{
-		Id:        post.Id,
-		DeletedBy: post.DeletedBy,
+	resp, err := h.storage.Post().DeletePost(c, &models.DeletePostRequest{
+		Id: post.Id,
 	})
 	if err != nil {
 		h.log.Error("error deleting post:", logger.Error(err))
@@ -203,6 +206,7 @@ func (h *Handler) DeletePost(c *gin.Context) {
 }
 
 // Get post godoc
+// @Security ApiKeyAuth
 // @Router       /my/post/{created_by} [GET]
 // @Summary      GET BY ID
 // @Description  get post by ID
@@ -244,6 +248,7 @@ func (h *Handler) GetMyPost(c *gin.Context) {
 }
 
 // GetAllPosts godoc
+// @Security ApiKeyAuth
 // @Router       /deleted_posts [GET]
 // @Summary      GET  ALL Posts
 // @Description  get all posts based on limit, page and search by postname
@@ -259,7 +264,7 @@ func (h *Handler) GetMyPost(c *gin.Context) {
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) GetAllDeletedPost(c *gin.Context) {
 	h.log.Info("request GetAllPost")
-	page, err := strconv.Atoi(c.DefaultQuery("page", "fmt.sprintf(`%d`,cfg.DefaultPage)"))
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
 		h.log.Error("error getting page:", logger.Error(err))
 		c.JSON(http.StatusBadRequest, "invalid page param")
@@ -272,7 +277,7 @@ func (h *Handler) GetAllDeletedPost(c *gin.Context) {
 		return
 	}
 	username := c.Query("search")
-	resp, err := h.storage.Post().GetAllPost(c.Request.Context(), &models.GetAllPostRequest{
+	resp, err := h.storage.Post().GetAllPost(c, &models.GetAllPostRequest{
 		Page:   page,
 		Limit:  limit,
 		Search: username,
