@@ -1,6 +1,8 @@
 definitions:
   models.CreatePost:
     properties:
+      created_by:
+        type: string
       description:
         type: string
       photos:
@@ -13,6 +15,13 @@ definitions:
       password:
         type: string
       username:
+        type: string
+    type: object
+  models.DeletePostRequest:
+    properties:
+      deleted_by:
+        type: string
+      id:
         type: string
     type: object
   models.GetAllPost:
@@ -56,6 +65,19 @@ definitions:
       updated_by:
         type: string
     type: object
+  models.UpdatePost:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      updated_by:
+        type: string
+    type: object
   models.User:
     properties:
       created_at:
@@ -83,7 +105,162 @@ definitions:
 info:
   contact: {}
 paths:
+  /deleted_posts:
+    get:
+      consumes:
+      - application/json
+      description: get all posts based on limit, page and search by postname
+      parameters:
+      - default: 10
+        description: limit
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllPost'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: GET  ALL Posts
+      tags:
+      - post
+  /deleted_users:
+    get:
+      consumes:
+      - application/json
+      description: get all users based on limit, page and search by name
+      parameters:
+      - default: 10
+        description: limit
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllUser'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: GET  ALL Users
+      tags:
+      - user
+  /my/post/{created_by}:
+    get:
+      consumes:
+      - application/json
+      description: get post by ID
+      parameters:
+      - description: User ID
+        format: uuid
+        in: path
+        name: created_by
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllPost'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: GET BY ID
+      tags:
+      - post
   /post:
+    delete:
+      consumes:
+      - application/json
+      description: DELETES post BASED ON ID
+      parameters:
+      - description: post data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeletePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      summary: DELETE post BY ID
+      tags:
+      - post
     get:
       consumes:
       - application/json
@@ -130,7 +307,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: creates a new post based on the given postname amd password
+      description: creates a new post based on the given postname ad password
       parameters:
       - description: post data
         in: body
@@ -161,43 +338,10 @@ paths:
       tags:
       - post
   /post/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: DELETES post BASED ON ID
-      parameters:
-      - description: id of post
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.ErrorResp'
-      summary: DELETE post BY ID
-      tags:
-      - post
     get:
       consumes:
       - application/json
-      description: get post by ID
+      description: get post by PostID
       parameters:
       - description: post ID
         format: uuid
@@ -243,7 +387,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/models.CreatePost'
+          $ref: '#/definitions/models.UpdatePost'
       produces:
       - application/json
       responses:
@@ -270,7 +414,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: get all branches based on limit, page and search by name
+      description: get all users based on limit, page and search by username
       parameters:
       - default: 10
         description: limit

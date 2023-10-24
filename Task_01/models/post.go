@@ -18,14 +18,19 @@ type Post struct {
 	DeletedBy   string   `json:"deleted_by"`
 }
 
-type DeletePost struct {
-	Id string `json:"id"`
+type DeletePostRequest struct {
+	DeletedBy string `json:"deleted_by"`
+	Id        string `json:"id"`
+}
+type MyPostRequest struct {
+	CreatedBy string `json:"created_by"`
 }
 
 type UpdatePost struct {
 	ID          string   `json:"id"`
 	Description string   `json:"description"`
 	Photos      []string `json:"photos"`
+	UpdatedBy   string   `json:"updated_by"`
 }
 
 type GetAllPostRequest struct {

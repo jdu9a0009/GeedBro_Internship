@@ -59,10 +59,9 @@ func (u userRepo) GetUser(ctx context.Context, req *models.IdRequest) (rep *mode
 				FROM
 				    users
 				WHERE
+				    is_active = true AND
 				    id = $1;`
-	// WHERE
-	// deleted_at IS NOT NULL
-	// AND id = $1;`
+
 	var (
 		createdAt  sql.NullTime
 		updatedAt  sql.NullTime
@@ -94,44 +93,43 @@ func (u userRepo) GetUser(ctx context.Context, req *models.IdRequest) (rep *mode
 	return &user, nil
 }
 
-func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest) (*models.GetAllUser, error) {
+func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest) (resp *models.GetAllUser, err error) {
 	params := make(map[string]interface{})
-	filter := ""
+	filter := "WHERE is_Active=true"
+	resp.Users = make([]models.User, 0)
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
 	updatedAt := sql.NullTime{}
 
-	s := `SELECT 
+	query := `SELECT 
+	               COUNT(*) OVER(),
 	               id,
 				   username,
 				   password,
 				   is_active,
 				   created_at,
 				   updated_at
-			FROM users
-						WHERE deleted_at IS  NULL`
+			FROM users`
 
 	if req.UserName != "" {
 		filter += ` AND username ILIKE '%' || :search || '%' `
 		params["search"] = req.UserName
 	}
 
-	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
-	offsetQ := fmt.Sprintf(" OFFSET %d", offset)
-	query := s + filter + limit + offsetQ
+	params["limit"] = req.Limit
+	params["offset"] = offset
 
-	q, pArr := helper.ReplaceQueryParams(query, params)
-	rows, err := u.db.Query(ctx, q, pArr...)
+	query = query + filter + "ORDER BY created_at desc OFFSET :offset LIMIT :limit"
+	resQuery, pArr := helper.ReplaceQueryParams(query, params)
+
+	rows, err := u.db.Query(context.Background(), resQuery, pArr...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	resp := &models.GetAllUser{}
-	count := 0
 	for rows.Next() {
 		var user models.User
-		count++
 		err := rows.Scan(
 			&user.ID,
 			&user.Username,
@@ -151,7 +149,71 @@ func (u *userRepo) GetAllUser(ctx context.Context, req *models.GetAllUserRequest
 		resp.Users = append(resp.Users, user)
 	}
 
-	resp.Count = count
+	return resp, nil
+}
+
+func (u *userRepo) GetAllDeletedUser(ctx context.Context, req *models.GetAllUserRequest) (resp *models.GetAllUser, err error) {
+	params := make(map[string]interface{})
+	filter := "WHERE is_Active=false"
+	resp.Users = make([]models.User, 0)
+	offset := (req.Page - 1) * req.Limit
+	createdAt := time.Time{}
+	updatedAt := sql.NullTime{}
+	deletedAt := sql.NullTime{}
+	deletedBy := sql.NullString{}
+
+	query := `SELECT 
+	               COUNT(*) OVER(),
+	               id,
+				   username,
+				   password,
+				   is_active,
+				   created_at,
+				   updated_at,
+				   deleted_at,
+				   deleted_by
+			FROM users`
+
+	if req.UserName != "" {
+		filter += ` AND username ILIKE '%' || :search || '%' `
+		params["search"] = req.UserName
+	}
+
+	params["limit"] = req.Limit
+	params["offset"] = offset
+
+	query = query + filter + "ORDER BY created_at desc OFFSET :offset LIMIT :limit"
+	resQuery, pArr := helper.ReplaceQueryParams(query, params)
+
+	rows, err := u.db.Query(context.Background(), resQuery, pArr...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user models.User
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Password,
+			&user.IsActive,
+			&createdAt,
+			&updatedAt,
+			&deletedAt,
+			&deletedBy,
+		)
+		if err != nil {
+			return nil, err
+		}
+		user.CreatedAt = createdAt.Format(time.RFC3339)
+		if updatedAt.Valid {
+			user.UpdatedAt = updatedAt.Time.Format(time.RFC3339)
+		}
+
+		resp.Users = append(resp.Users, user)
+	}
+
 	return resp, nil
 }
 

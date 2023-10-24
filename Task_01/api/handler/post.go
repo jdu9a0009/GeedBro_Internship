@@ -17,7 +17,7 @@ import (
 // CreatePost godoc
 // @Router       /post [POST]
 // @Summary      Creat new post
-// @Description  creates a new post based on the given postname amd password
+// @Description  creates a new post based on the given postname ad password
 // @Tags         post
 // @Accept       json
 // @Produce      json
@@ -47,7 +47,7 @@ func (h *Handler) CreatePost(c *gin.Context) {
 // Get post godoc
 // @Router       /post/{id} [GET]
 // @Summary      GET BY ID
-// @Description  get post by ID
+// @Description  get post by PostID
 // @Tags         post
 // @Accept       json
 // @Produce      json
@@ -135,13 +135,13 @@ func (h *Handler) GetAllPost(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id    path     string  true  "id of post" format(uuid)
-// @Param        data  body      models.CreatePost  true  "post data"
+// @Param        data  body      models.UpdatePost true  "post data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) UpdatePost(c *gin.Context) {
-	var post models.Post
+	var post models.UpdatePost
 	err := c.ShouldBind(&post)
 	if err != nil {
 		h.log.Error("error while binding:", logger.Error(err))
@@ -149,7 +149,7 @@ func (h *Handler) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post.ID = c.Param("id")
+	// post.ID = c.Param("id")
 	resp, err := h.storage.Post().UpdatePost(c.Request.Context(), &post)
 	if err != nil {
 		h.log.Error("error updating post:", logger.Error(err))
@@ -166,21 +166,29 @@ func (h *Handler) UpdatePost(c *gin.Context) {
 }
 
 // DeletePost godoc
-// @Router       /post/{id} [DELETE]
+// @Router       /post [DELETE]
 // @Summary      DELETE post BY ID
 // @Description  DELETES post BASED ON ID
 // @Tags         post
 // @Accept       json
 // @Produce      json
-// @Param        id    path     string  true  "id of post" format(uuid)
+// @Param        data  body      models.DeletePostRequest  true  "post data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) DeletePost(c *gin.Context) {
-	id := c.Param("id")
-
-	resp, err := h.storage.Post().DeletePost(c.Request.Context(), &models.IdRequest{Id: id})
+	var post models.DeletePostRequest
+	err := c.ShouldBindJSON(&post)
+	if err != nil {
+		h.log.Error("error while binding:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	resp, err := h.storage.Post().DeletePost(c.Request.Context(), &models.DeletePostRequest{
+		Id:        post.Id,
+		DeletedBy: post.DeletedBy,
+	})
 	if err != nil {
 		h.log.Error("error deleting post:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete branch"})
@@ -188,8 +196,93 @@ func (h *Handler) DeletePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Post successfully deleted", "id": resp})
-	err = h.redisStorage.Cache().Delete(c.Request.Context(), id)
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), post.Id)
 	if err != nil {
 		fmt.Println("error Post Create in redis cache:", err.Error())
 	}
+}
+
+// Get post godoc
+// @Router       /my/post/{created_by} [GET]
+// @Summary      GET BY ID
+// @Description  get post by ID
+// @Tags         post
+// @Accept       json
+// @Produce      json
+// @Param        created_by   path      string  true  "User ID" format(uuid)
+// @Success      200  {object}  models.GetAllPost
+// @Failure      400  {object}  response.ErrorResp
+// @Failure      404  {object}  response.ErrorResp
+// @Failure      500  {object}  response.ErrorResp
+func (h *Handler) GetMyPost(c *gin.Context) {
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		h.log.Error("error getting page:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid page param")
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		h.log.Error("error getting limit:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid limit param")
+		return
+	}
+	userID := c.Query("created_by")
+	resp, err := h.storage.Post().GetAllPost(c.Request.Context(), &models.GetAllPostRequest{
+		Page:   page,
+		Limit:  limit,
+		Search: userID,
+	})
+	if err != nil {
+		h.log.Error("error  GetAllPost:", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, "internal server error")
+		return
+	}
+	h.log.Warn("response to GetAllPost")
+	c.JSON(http.StatusOK, resp)
+}
+
+// GetAllPosts godoc
+// @Router       /deleted_posts [GET]
+// @Summary      GET  ALL Posts
+// @Description  get all posts based on limit, page and search by postname
+// @Tags         post
+// @Accept       json
+// @Produce      json
+// @Param   limit         query     int        false  "limit"          minimum(1)     default(10)
+// @Param   page         query     int        false  "page"          minimum(1)     default(1)
+// @Param   search         query     string        false  "search"
+// @Success      200  {object}  models.GetAllPost
+// @Failure      400  {object}  response.ErrorResp
+// @Failure      404  {object}  response.ErrorResp
+// @Failure      500  {object}  response.ErrorResp
+func (h *Handler) GetAllDeletedPost(c *gin.Context) {
+	h.log.Info("request GetAllPost")
+	page, err := strconv.Atoi(c.DefaultQuery("page", "fmt.sprintf(`%d`,cfg.DefaultPage)"))
+	if err != nil {
+		h.log.Error("error getting page:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid page param")
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		h.log.Error("error getting limit:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid limit param")
+		return
+	}
+	username := c.Query("search")
+	resp, err := h.storage.Post().GetAllPost(c.Request.Context(), &models.GetAllPostRequest{
+		Page:   page,
+		Limit:  limit,
+		Search: username,
+	})
+
+	if err != nil {
+		h.log.Error("error  GetAllPost:", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, "internal server error")
+		return
+	}
+	h.log.Warn("response to GetAllPost")
+	c.JSON(http.StatusOK, resp)
 }

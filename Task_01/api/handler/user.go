@@ -94,7 +94,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 // GetAllUsers godoc
 // @Router       /user [GET]
 // @Summary      GET  ALL Users
-// @Description  get all branches based on limit, page and search by name
+// @Description  get all users based on limit, page and search by username
 // @Tags         user
 // @Accept       json
 // @Produce      json
@@ -106,6 +106,49 @@ func (h *Handler) GetUser(c *gin.Context) {
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) GetAllUser(c *gin.Context) {
+	h.log.Info("request GetAllUser")
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		h.log.Error("error getting page:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid page param")
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		h.log.Error("error getting limit:", logger.Error(err))
+		c.JSON(http.StatusBadRequest, "invalid limit param")
+		return
+	}
+
+	resp, err := h.storage.User().GetAllUser(c.Request.Context(), &models.GetAllUserRequest{
+		Page:     page,
+		Limit:    limit,
+		UserName: c.Query("search"),
+	})
+	if err != nil {
+		h.log.Error("error Branch GetAllBUser:", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, "internal server error")
+		return
+	}
+	h.log.Warn("response to GetAllUser")
+	c.JSON(http.StatusOK, resp)
+}
+
+// GetAllDeletedUsers godoc
+// @Router       /deleted_users [GET]
+// @Summary      GET  ALL Users
+// @Description  get all users based on limit, page and search by name
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param   limit         query     int        false  "limit"          minimum(1)     default(10)
+// @Param   page         query     int        false  "page"          minimum(1)     default(1)
+// @Param   search         query     string        false  "search"
+// @Success      200  {object}  models.GetAllUser
+// @Failure      400  {object}  response.ErrorResp
+// @Failure      404  {object}  response.ErrorResp
+// @Failure      500  {object}  response.ErrorResp
+func (h *Handler) GetAllDeletedUser(c *gin.Context) {
 	h.log.Info("request GetAllUser")
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
