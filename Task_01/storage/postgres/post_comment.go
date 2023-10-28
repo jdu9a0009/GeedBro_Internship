@@ -14,75 +14,71 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-type postRepo struct {
+type postCommentRepo struct {
 	db *pgxpool.Pool
 }
 
-func NewPostRepo(db *pgxpool.Pool) *postRepo {
-	return &postRepo{
+func NewPostCommentRepo(db *pgxpool.Pool) *postCommentRepo {
+	return &postCommentRepo{
 		db: db,
 	}
 }
 
-func (u *postRepo) CreatePost(ctx context.Context, req *models.CreatePost) (string, error) {
+func (u *postCommentRepo) CreatePostComment(ctx context.Context, req *models.CreatePostComment) (string, error) {
 	id := uuid.NewString()
 	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
-	query := `INSERT INTO posts(
+	query := `INSERT INTO post_comments(
 	                        id,
-							description,
-							photos,
+							post_id,
+							comment,
 							created_by,
 							created_at)
 							VALUES($1, $2, $3,$4,now())`
 
 	_, err := u.db.Exec(ctx, query,
 		id,
-		req.Description,
-		req.Photos,
+		req.Post_id,
+		req.Comment,
 		TokenUser.UserID,
 	)
 
 	if err != nil {
-		return "Error CreatePost", err
+		return "Error CreatePostComment", err
 	}
 
 	return id, nil
 }
 
-func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *models.Post, err error) {
+func (u postCommentRepo) GetPostComment(ctx context.Context, req *models.IdRequest) (rep *models.PostComment, err error) {
 	var (
 		createdAt sql.NullTime
 		createdBy sql.NullString
 	)
 
-	query := `
-    SELECT 
-            p.id, 
-            p.description,
-            p.photos,
-            p.created_at,
-            p.created_by,
-      
-      (SELECT COUNT(*) FROM post_likes l 
-	  WHERE  deleted_at is null and
-	  l.post_id = p.id) AS like_count
-    FROM posts p 
-    WHERE p.id = $1
-  `
+	query := `SELECT 
+                    id,
+                    post_id,
+                    comment,
+                    created_at,
+					created_by
+				FROM
+				    post_comments
+            	WHERE
+	               deleted_at IS  NULL
+	               AND id = $1;`
 
-	post := models.Post{}
+	post := models.PostComment{}
 
 	err = u.db.QueryRow(context.Background(), query, req.Id).Scan(
 		&post.ID,
-		&post.Description,
-		&post.Photos,
+		&post.Post_id,
+		&post.Comment,
 		&createdAt,
 		&createdBy,
-		&post.LikeCount,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Post not found")
+		return nil, fmt.Errorf("PostComment not found")
 	}
 	post.CreatedAt = createdAt.Time.Format(time.RFC3339)
 	post.CreatedBy = createdBy.String
@@ -90,9 +86,9 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
 	return &post, nil
 }
 
-func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
+func (u *postCommentRepo) GetAllPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error) {
 	params := make(map[string]interface{})
-	filter := "deleted_at is null"
+	filter := ""
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
 	createdBy := sql.NullString{}
@@ -100,21 +96,15 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 	s := `
 	SELECT 
 		id,
-		description,
-		photos,
+		post_id,
+		comment,
 		created_at,
 		created_by
-		(SELECT COUNT(*) FROM post_likes 
-		l WHERE  deleted_at is null and
-		l.post_id = p.id) AS like_count
-		FROM posts p 
-		WHERE  deleted_at is null and p.id = $1
+	FROM
+		post_comments
+	WHERE
+		deleted_at IS  NULL
 	`
-
-	if req.Search != "" {
-		filter += ` AND description ILIKE '%' || :search || '%' `
-		params["search"] = req.Search
-	}
 
 	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
 	offsetQ := fmt.Sprintf(" OFFSET %d", offset)
@@ -127,18 +117,17 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 	}
 	defer rows.Close()
 
-	resp := &models.GetAllPost{}
+	resp := &models.GetAllPostComment{}
 	count := 0
 	for rows.Next() {
-		var post models.Post
+		var post models.PostComment
 		count++
 		err := rows.Scan(
 			&post.ID,
-			&post.Description,
-			&post.Photos,
+			&post.Post_id,
+			&post.Comment,
 			&createdAt,
 			&createdBy,
-			&post.LikeCount,
 		)
 		if err != nil {
 			return nil, err
@@ -149,14 +138,14 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 			post.CreatedBy = createdBy.String
 		}
 
-		resp.Posts = append(resp.Posts, post)
+		resp.Comments = append(resp.Comments, post)
 	}
 
 	resp.Count = count
 	return resp, nil
 }
 
-func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
+func (u *postRepo) GetMyPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error) {
 	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	params := make(map[string]interface{})
@@ -166,22 +155,17 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 	fmt.Println(req)
 	s := `
 	SELECT 
-		id,
-		description,
-		photos,
-		created_at,
-		created_by,
-	
-		(SELECT COUNT(*) FROM post_likes l
-		 WHERE deleted_at is null and
-		  l.post_id = p.id) AS like_count
-		FROM posts p 
-		WHERE deleted_at is null and
-		 p.id = $1 `
+	       id,
+	       post_id,
+	       comment,
+	       created_at,
+	       created_by
+	FROM
+		post_comments`
 
-	if req.Search != "" {
-		filter += ` AND created_by = :search`
-		params["search"] = req.Search
+	if req.Post_id != "" {
+		filter += ` AND post_id = :search`
+		params["search"] = req.Post_id
 	}
 
 	fmt.Println(s)
@@ -196,32 +180,31 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 	}
 	defer rows.Close()
 
-	resp := &models.GetAllPost{}
+	resp := &models.GetAllPostComment{}
 	count := 0
 	for rows.Next() {
-		var post models.Post
+		var post models.PostComment
 		count++
 		err := rows.Scan(
 			&post.ID,
-			&post.Description,
-			&post.Photos,
+			&post.Post_id,
+			&post.Comment,
 			&createdAt,
 			&TokenUser.UserID,
-			&post.LikeCount,
 		)
 		if err != nil {
 			return nil, err
 		}
 		post.CreatedAt = createdAt.Format(time.RFC3339)
 
-		resp.Posts = append(resp.Posts, post)
+		resp.Comments = append(resp.Comments, post)
 	}
 
 	resp.Count = count
 	return resp, nil
 }
 
-func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
+func (u *postCommentRepo) GetAllDeletedPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error) {
 	params := make(map[string]interface{})
 	filter := ` `
 	offset := (req.Page - 1) * req.Limit
@@ -231,18 +214,13 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 	s := `
 	SELECT 
 		id,
-		description,
-		photos,
+		post_id,
+		comment,
 		created_at,
 		created_by
 	FROM
 		posts
 		where deleted_at IS  NOT NULL`
-
-	if req.Search != "" {
-		filter += ` AND description ILIKE '%' || :search || '%' `
-		params["search"] = req.Search
-	}
 
 	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
 	offsetQ := fmt.Sprintf(" OFFSET %d", offset)
@@ -255,15 +233,15 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 	}
 	defer rows.Close()
 
-	resp := &models.GetAllPost{}
+	resp := &models.GetAllPostComment{}
 	count := 0
 	for rows.Next() {
-		var post models.Post
+		var post models.PostComment
 		count++
 		err := rows.Scan(
 			&post.ID,
-			&post.Description,
-			&post.Photos,
+			&post.Post_id,
+			&post.Comment,
 			&createdAt,
 			&createdBy,
 		)
@@ -273,21 +251,20 @@ func (u *postRepo) GetAllDeletedPost(ctx context.Context, req *models.GetAllPost
 		post.CreatedAt = createdAt.Format(time.RFC3339)
 		post.CreatedBy = createdBy.String
 
-		resp.Posts = append(resp.Posts, post)
+		resp.Comments = append(resp.Comments, post)
 	}
 
 	resp.Count = count
 	return resp, nil
 }
 
-func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (string, error) {
+func (u *postCommentRepo) UpdatePostComment(ctx context.Context, req *models.UpdatePostComment) (string, error) {
 	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	query := `
-			UPDATE "posts" 
+			UPDATE "post_comments" 
 				SET 
-				"description" = $1,
-				"photos" = $2,
+				"comment" = $1,
 				"updated_by"=$3,
 				"updated_at" = NOW()
 				WHERE "id" = $4 `
@@ -295,14 +272,14 @@ func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (stri
 	result, err := u.db.Exec(
 		context.Background(),
 		query,
-		req.Description,
-		req.Photos,
+		req.Comment,
 		TokenUser.UserID,
 		req.ID,
+		TokenUser.UserID,
 	)
 
 	if err != nil {
-		return "Error Update Post", err
+		return "Error Update PostComment", err
 	}
 
 	if result.RowsAffected() == 0 {
@@ -312,11 +289,11 @@ func (u *postRepo) UpdatePost(ctx context.Context, req *models.UpdatePost) (stri
 	return req.ID, nil
 }
 
-func (b *postRepo) DeletePost(ctx context.Context, req *models.DeletePostRequest) (resp string, err error) {
+func (b *postCommentRepo) DeletePostComment(ctx context.Context, req *models.DeletePostCommentRequest) (resp string, err error) {
 	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	query := `
-	 	UPDATE "posts" 
+	 	UPDATE "post_comments" 
 		SET 
 		     "deleted_at" = NOW(),
 			 "deleted_by"=$1

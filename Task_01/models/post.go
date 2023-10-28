@@ -9,15 +9,13 @@ type Post struct {
 	ID          string   `json:"id"`
 	Description string   `json:"description"`
 	Photos      []string `json:"photos"`
+	LikeCount   string   `json:"like_count"`
 	CreatedAt   string   `json:"created_at"`
 	CreatedBy   string   `json:"created_by"`
 }
 
 type DeletePostRequest struct {
 	Id string `json:"id"`
-}
-type MyPostRequest struct {
-	CreatedBy string `json:"created_by"`
 }
 
 type UpdatePost struct {

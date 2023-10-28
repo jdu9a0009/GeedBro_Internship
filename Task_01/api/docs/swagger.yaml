@@ -263,13 +263,6 @@ paths:
       consumes:
       - application/json
       description: get post by ID
-      parameters:
-      - description: User ID
-        format: uuid
-        in: path
-        name: created_by
-        required: true
-        type: string
       produces:
       - application/json
       responses:

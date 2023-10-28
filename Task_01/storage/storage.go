@@ -9,6 +9,8 @@ import (
 type StorageI interface {
 	User() UsersI
 	Post() PostI
+	PostComment() PostCommentI
+	PostLike() PostLikeI
 }
 type CacheI interface {
 	Cache() RedisI
@@ -34,6 +36,24 @@ type PostI interface {
 	GetMyPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error)
 	GetAllDeletedPost(context.Context, *models.GetAllPostRequest) (*models.GetAllPost, error)
 }
+
+type PostLikeI interface {
+	CreatePostLike(context.Context, *models.PostLikes) (string, error)
+	GetPostLikes(context.Context, *models.PostLikes) ([]models.PostLike, error)
+	DeletePostLike(context.Context, *models.DeletePostLikeRequest) (string, error)
+}
+
+type PostCommentI interface {
+	CreatePostComment(context.Context, *models.CreatePostComment) (string, error)
+	GetPostComment(context.Context, *models.IdRequest) (*models.PostComment, error)
+	GetAllPostComment(context.Context, *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
+	UpdatePostComment(context.Context, *models.UpdatePostComment) (string, error)
+	DeletePostComment(context.Context, *models.DeletePostCommentRequest) (string, error)
+
+	GetMyPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
+	GetAllDeletedPostComment(context.Context, *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
+}
+
 type RedisI interface {
 	Create(ctx context.Context, id string, obj interface{}, ttl time.Duration) error
 	Get(ctx context.Context, id string, response interface{}) (bool, error)

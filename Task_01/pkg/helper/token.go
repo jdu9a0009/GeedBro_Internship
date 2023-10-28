@@ -10,7 +10,8 @@ import (
 )
 
 type TokenInfo struct {
-	UserID string `json:"user_id"`
+	Username string `json:"username"`
+	UserID   string `json:"user_id"`
 }
 
 // GenerateJWT ...

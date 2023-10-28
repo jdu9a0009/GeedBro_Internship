@@ -277,16 +277,6 @@ const docTemplate = `{
                     "post"
                 ],
                 "summary": "GET BY ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "User ID",
-                        "name": "created_by",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",

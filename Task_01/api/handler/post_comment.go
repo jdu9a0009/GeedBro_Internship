@@ -14,65 +14,65 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CreatePost godoc
+// CreatePostComment godoc
 // @Security ApiKeyAuth
-// @Router       /post [POST]
-// @Summary      Creat new post
-// @Description  creates a new post based on the given postname ad password
-// @Tags         post
+// @Router       /post_comment [POST]
+// @Summary      Creat new post_comment
+// @Description  creates a new post_comment based on the given post_commentname ad password
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Param        data  body      models.CreatePost  true  "post data"
+// @Param        data  body      models.CreatePostComment  true  "post_comment data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) CreatePost(c *gin.Context) {
-	var post models.CreatePost
-	fmt.Println("Before Handler", post)
+func (h *Handler) CreatePostComment(c *gin.Context) {
+	var post_comment models.CreatePostComment
+	fmt.Println("Before Handler", post_comment)
 
-	if err := c.ShouldBindJSON(&post); err != nil {
+	if err := c.ShouldBindJSON(&post_comment); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp, err := h.storage.Post().CreatePost(c, &post)
+	resp, err := h.storage.PostComment().CreatePostComment(c, &post_comment)
 	if err != nil {
-		h.log.Error("error Post Create:", logger.Error(err))
+		h.log.Error("error PostComment Create:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
 	c.JSON(http.StatusCreated, response.CreateResponse{Message: "Succesfully created", Id: resp})
 }
 
-// Get post godoc
+// Get post_comment godoc
 // @Security ApiKeyAuth
-// @Router       /post/{id} [GET]
+// @Router       /post_comment/{id} [GET]
 // @Summary      GET BY ID
-// @Description  get post by PostID
-// @Tags         post
+// @Description  get post_comment by PostCommentID
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "post ID" format(uuid)
-// @Success      200  {object}  models.Post
+// @Param        id   path      string  true  "post_comment ID" format(uuid)
+// @Success      200  {object}  models.PostComment
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) GetPost(c *gin.Context) {
-	post := models.Post{}
+func (h *Handler) GetPostComment(c *gin.Context) {
+	post_comment := models.PostComment{}
 	id := c.Param("id")
-	ok, err := h.redisStorage.Cache().Get(c.Request.Context(), id, post)
+	ok, err := h.redisStorage.Cache().Get(c.Request.Context(), id, post_comment)
 	if err != nil {
 		fmt.Println("not found staff in redis cache")
 	}
 
 	if ok {
-		c.JSON(http.StatusOK, post)
+		c.JSON(http.StatusOK, post_comment)
 		return
 	}
-	resp, err := h.storage.Post().GetPost(c, &models.IdRequest{Id: id})
+	resp, err := h.storage.PostComment().GetPostComment(c, &models.IdRequest{Id: id})
 	if err != nil {
-		h.log.Error("error Post Get:", logger.Error(err))
+		h.log.Error("error PostComment Get:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -81,27 +81,27 @@ func (h *Handler) GetPost(c *gin.Context) {
 
 	err = h.redisStorage.Cache().Create(c.Request.Context(), id, resp, time.Hour)
 	if err != nil {
-		fmt.Println("error Post Create in redis cache:", err.Error())
+		fmt.Println("error PostComment Create in redis cache:", err.Error())
 	}
 }
 
-// GetAllPosts godoc
+// GetAllPostComments godoc
 // @Security ApiKeyAuth
-// @Router       /post [GET]
-// @Summary      GET  ALL Posts
-// @Description  get all posts based on limit, page and search by postname
-// @Tags         post
+// @Router       /post_comment [GET]
+// @Summary      GET  ALL PostComments
+// @Description  get all post_comments based on limit, page and search by post_commentname
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
 // @Param   limit         query     int        false  "limit"          minimum(1)     default(10)
 // @Param   page         query     int        false  "page"          minimum(1)     default(1)
 // @Param   search         query     string        false  "search"
-// @Success      200  {object}  models.GetAllPost
+// @Success      200  {object}  models.GetAllPostComment
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) GetAllPost(c *gin.Context) {
-	h.log.Info("request GetAllPost")
+func (h *Handler) GetAllPostComment(c *gin.Context) {
+	h.log.Info("request GetAllPostComment")
 	page, err := strconv.Atoi(c.DefaultQuery("page", "fmt.sprintf(`%d`,cfg.DefaultPage)"))
 	if err != nil {
 		h.log.Error("error getting page:", logger.Error(err))
@@ -114,110 +114,110 @@ func (h *Handler) GetAllPost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "invalid limit param")
 		return
 	}
-	username := c.Query("search")
-	resp, err := h.storage.Post().GetAllPost(c, &models.GetAllPostRequest{
-		Page:   page,
-		Limit:  limit,
-		Search: username,
+	Post_id := c.Query("search")
+	resp, err := h.storage.PostComment().GetAllPostComment(c, &models.GetAllPostCommentRequest{
+		Page:    page,
+		Limit:   limit,
+		Post_id: Post_id,
 	})
 
 	if err != nil {
-		h.log.Error("error  GetAllPost:", logger.Error(err))
+		h.log.Error("error  GetAllPostComment:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
-	h.log.Warn("response to GetAllPost")
+	h.log.Warn("response to GetAllPostComment")
 	c.JSON(http.StatusOK, resp)
 }
 
-// UpdatePost godoc
+// UpdatePostComment godoc
 // @Security ApiKeyAuth
-// @Router       /post [PUT]
-// @Summary      UPDATE post BY ID
-// @Description  UPDATES post BASED ON GIVEN DATA AND ID
-// @Tags         post
+// @Router       /post_comment [PUT]
+// @Summary      UPDATE post_comment BY ID
+// @Description  UPDATES post_comment BASED ON GIVEN DATA AND ID
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Param        id    path     string  true  "id of post" format(uuid)
-// @Param        data  body      models.UpdatePost true  "post data"
+// @Param        id    path     string  true  "id of post_comment" format(uuid)
+// @Param        data  body      models.UpdatePostComment true  "post_comment data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) UpdatePost(c *gin.Context) {
-	var post models.UpdatePost
-	err := c.ShouldBind(&post)
+func (h *Handler) UpdatePostComment(c *gin.Context) {
+	var post_comment models.UpdatePostComment
+	err := c.ShouldBind(&post_comment)
 	if err != nil {
 		h.log.Error("error while binding:", logger.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	resp, err := h.storage.Post().UpdatePost(c, &post)
+	resp, err := h.storage.PostComment().UpdatePostComment(c, &post_comment)
 	if err != nil {
-		h.log.Error("error updating post:", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update post"})
+		h.log.Error("error updating post_comment:", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update post_comment"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Post successfully updated", "id": resp})
-	err = h.redisStorage.Cache().Delete(c.Request.Context(), post.ID)
+	c.JSON(http.StatusOK, gin.H{"message": "PostComment successfully updated", "id": resp})
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), post_comment.ID)
 	if err != nil {
-		fmt.Println("error Post Create in redis cache:", err.Error())
+		fmt.Println("error PostComment Create in redis cache:", err.Error())
 	}
 
 }
 
-// DeletePost godoc
+// DeletePostComment godoc
 // @Security ApiKeyAuth
-// @Router       /post [DELETE]
-// @Summary      DELETE post BY ID
-// @Description  DELETES post BASED ON ID
-// @Tags         post
+// @Router       /post_comment [DELETE]
+// @Summary      DELETE post_comment BY ID
+// @Description  DELETES post_comment BASED ON ID
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Param        data  body      models.DeletePostRequest  true  "post data"
+// @Param        data  body      models.DeletePostCommentRequest  true  "post_comment data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) DeletePost(c *gin.Context) {
-	var post models.DeletePostRequest
-	err := c.ShouldBindJSON(&post)
+func (h *Handler) DeletePostComment(c *gin.Context) {
+	var post_comment models.DeletePostCommentRequest
+	err := c.ShouldBindJSON(&post_comment)
 	if err != nil {
 		h.log.Error("error while binding:", logger.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	resp, err := h.storage.Post().DeletePost(c, &models.DeletePostRequest{
-		Id: post.Id,
+	resp, err := h.storage.PostComment().DeletePostComment(c, &models.DeletePostCommentRequest{
+		Id: post_comment.Id,
 	})
 	if err != nil {
-		h.log.Error("error deleting post:", logger.Error(err))
+		h.log.Error("error deleting post_comment:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete branch"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Post successfully deleted", "id": resp})
-	err = h.redisStorage.Cache().Delete(c.Request.Context(), post.Id)
+	c.JSON(http.StatusOK, gin.H{"message": "PostComment successfully deleted", "id": resp})
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), post_comment.Id)
 	if err != nil {
-		fmt.Println("error Post Create in redis cache:", err.Error())
+		fmt.Println("error PostComment Create in redis cache:", err.Error())
 	}
 }
 
-// Get post godoc
+// Get post_comment godoc
 // @Security ApiKeyAuth
-// @Router       /my/post/{created_by} [GET]
+// @Router       /my/post_comment/{created_by} [GET]
 // @Summary      GET BY ID
-// @Description  get post by ID
-// @Tags         post
+// @Description  get post_comment by ID
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  models.GetAllPost
+// @Success      200  {object}  models.GetAllPostComment
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) GetMyPost(c *gin.Context) {
+func (h *Handler) GetMyPostComment(c *gin.Context) {
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
@@ -231,38 +231,38 @@ func (h *Handler) GetMyPost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "invalid limit param")
 		return
 	}
-	search := c.Query("search")
-	resp, err := h.storage.Post().GetMyPost(c, &models.GetAllPostRequest{
-		Page:   page,
-		Limit:  limit,
-		Search: search,
+	post_id := c.Query("search")
+	resp, err := h.storage.PostComment().GetMyPostComment(c, &models.GetAllPostCommentRequest{
+		Page:    page,
+		Limit:   limit,
+		Post_id: post_id,
 	})
 	if err != nil {
-		h.log.Error("error  GetAllPost:", logger.Error(err))
+		h.log.Error("error  GetAllPostComment:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
-	h.log.Warn("response to GetAllPost")
+	h.log.Warn("response to GetAllPostComment")
 	c.JSON(http.StatusOK, resp)
 }
 
-// GetAllPosts godoc
+// GetAllPostComments godoc
 // @Security ApiKeyAuth
-// @Router       /deleted_posts [GET]
-// @Summary      GET  ALL Posts
-// @Description  get all posts based on limit, page and search by postname
-// @Tags         post
+// @Router       /deleted_post_comments [GET]
+// @Summary      GET  ALL PostComments
+// @Description  get all post_comments based on limit, page and search by post_commentname
+// @Tags         post_comment
 // @Accept       json
 // @Produce      json
 // @Param   limit         query     int        false  "limit"          minimum(1)     default(10)
 // @Param   page         query     int        false  "page"          minimum(1)     default(1)
 // @Param   search         query     string        false  "search"
-// @Success      200  {object}  models.GetAllPost
+// @Success      200  {object}  models.GetAllPostComment
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) GetAllDeletedPost(c *gin.Context) {
-	h.log.Info("request GetAllPost")
+func (h *Handler) GetAllDeletedPostComment(c *gin.Context) {
+	h.log.Info("request GetAllPostComment")
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
 		h.log.Error("error getting page:", logger.Error(err))
@@ -275,18 +275,18 @@ func (h *Handler) GetAllDeletedPost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "invalid limit param")
 		return
 	}
-	username := c.Query("search")
-	resp, err := h.storage.Post().GetAllDeletedPost(c, &models.GetAllPostRequest{
-		Page:   page,
-		Limit:  limit,
-		Search: username,
+	post_id := c.Query("search")
+	resp, err := h.storage.PostComment().GetAllDeletedPostComment(c, &models.GetAllPostCommentRequest{
+		Page:    page,
+		Limit:   limit,
+		Post_id: post_id,
 	})
 
 	if err != nil {
-		h.log.Error("error  GetAllPost:", logger.Error(err))
+		h.log.Error("error  GetAllPostComment:", logger.Error(err))
 		c.JSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
-	h.log.Warn("response to GetAllPost")
+	h.log.Warn("response to GetAllPostComment")
 	c.JSON(http.StatusOK, resp)
 }

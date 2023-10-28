@@ -16,6 +16,7 @@ import (
 // @name Authorization
 func NewServer(h *handler.Handler) *gin.Engine {
 	r := gin.Default()
+
 	//Auth sign up and login
 	r.POST("/auth/login", h.Login)
 	r.POST("/auth/sign-up", h.SignUp)
@@ -38,7 +39,19 @@ func NewServer(h *handler.Handler) *gin.Engine {
 	r.GET("/my/post/:created_by", helper.AuthMiddleware, h.GetMyPost)
 	r.GET("/deleted_posts", helper.AuthMiddleware, h.GetAllDeletedPost)
 
-	// r.DELETE("/my/posts", h.getmypost)
+	//Postlikes
+	r.POST("/post_like", helper.AuthMiddleware, h.CreatePostLike)
+	r.GET("/post_like/:id", helper.AuthMiddleware, h.GetPostLike)
+	r.DELETE("/post_like", helper.AuthMiddleware, h.DeletePostLike)
+
+	//Post_Comments
+	r.POST("/post_comment", helper.AuthMiddleware, h.CreatePost)
+	r.GET("/post_comment/:id", helper.AuthMiddleware, h.GetPost)
+	r.GET("/post_comment", helper.AuthMiddleware, h.GetAllPost)
+	r.PUT("/post_comment", helper.AuthMiddleware, h.UpdatePost)
+	r.DELETE("/post_comment", helper.AuthMiddleware, h.DeletePost)
+	r.GET("/my/post_comment/:created_by", helper.AuthMiddleware, h.GetMyPost)
+	r.GET("/deleted_post_comments", helper.AuthMiddleware, h.GetAllDeletedPost)
 
 	url := ginSwagger.URL("swagger/doc.json") // The url pointing to API definition
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
