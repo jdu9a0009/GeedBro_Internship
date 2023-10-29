@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"user/api/handler/response"
 	"user/models"
 	"user/pkg/logger"
@@ -20,7 +21,7 @@ import (
 // @Tags         post_like
 // @Accept       json
 // @Produce      json
-// @Param        data  body      models.CreatePostLike  true  "post data"
+// @Param        data  body      models.PostLikes  true  "post data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
@@ -37,10 +38,16 @@ func (h *Handler) CreatePostLike(c *gin.Context) {
 	resp, err := h.storage.PostLike().CreatePostLike(c, &post)
 	if err != nil {
 		h.log.Error("error PostLike Create:", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, "internal server error")
+		if strings.Contains(err.Error(), "like already exists") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "like already exists for the given post and user"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
+		fmt.Println("Error:", err) // Print the error message to the console
 		return
 	}
-	c.JSON(http.StatusCreated, response.CreateResponse{Message: "Succesfully created", Id: resp})
+
+	c.JSON(http.StatusCreated, response.CreateResponse{Message: "Successfully created", Id: resp})
 }
 
 // Get post godoc
@@ -51,13 +58,13 @@ func (h *Handler) CreatePostLike(c *gin.Context) {
 // @Tags         post_like
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "post ID" format(uuid)
-// @Success      200  {object}  models.PostLike
+// @Param        id   path      string  true  "Like ID" format(uuid)
+// @Success      200  {object}  models.PostLikes
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
 func (h *Handler) GetPostLike(c *gin.Context) {
-	post := models.PostLike{}
+	post := models.PostLikes{}
 	post_id := c.Param("id")
 	ok, err := h.redisStorage.Cache().Get(c.Request.Context(), post_id, post)
 	if err != nil {
@@ -85,10 +92,10 @@ func (h *Handler) GetPostLike(c *gin.Context) {
 
 // DeletePostLike godoc
 // @Security ApiKeyAuth
-// @Router       /post [DELETE]
+// @Router       /post_like [DELETE]
 // @Summary      DELETE post BY ID
 // @Description  DELETES post BASED ON ID
-// @Tags         post
+// @Tags         post_like
 // @Accept       json
 // @Produce      json
 // @Param        data  body      models.DeletePostLikeRequest  true  "post data"
@@ -105,16 +112,16 @@ func (h *Handler) DeletePostLike(c *gin.Context) {
 		return
 	}
 	resp, err := h.storage.PostLike().DeletePostLike(c, &models.DeletePostLikeRequest{
-		Id: post.Id,
+		Post_Id: post.Post_Id,
 	})
 	if err != nil {
 		h.log.Error("error deleting post:", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete branch"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete Like"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "PostLike successfully deleted", "id": resp})
-	err = h.redisStorage.Cache().Delete(c.Request.Context(), post.Id)
+	err = h.redisStorage.Cache().Delete(c.Request.Context(), post.Post_Id)
 	if err != nil {
 		fmt.Println("error PostLike Create in redis cache:", err.Error())
 	}

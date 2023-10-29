@@ -1,4 +1,9 @@
 definitions:
+  models.CommentLikes:
+    properties:
+      id:
+        type: string
+    type: object
   models.CreatePost:
     properties:
       description:
@@ -8,11 +13,33 @@ definitions:
           type: string
         type: array
     type: object
+  models.CreatePostComment:
+    properties:
+      comment:
+        type: string
+      post_id:
+        type: string
+    type: object
   models.CreateUser:
     properties:
       password:
         type: string
       username:
+        type: string
+    type: object
+  models.DeleteCommentLikeRequest:
+    properties:
+      post_id:
+        type: string
+    type: object
+  models.DeletePostCommentRequest:
+    properties:
+      id:
+        type: string
+    type: object
+  models.DeletePostLikeRequest:
+    properties:
+      post_id:
         type: string
     type: object
   models.DeletePostRequest:
@@ -25,6 +52,15 @@ definitions:
       Posts:
         items:
           $ref: '#/definitions/models.Post'
+        type: array
+      count:
+        type: integer
+    type: object
+  models.GetAllPostComment:
+    properties:
+      PostComments:
+        items:
+          $ref: '#/definitions/models.PostComment'
         type: array
       count:
         type: integer
@@ -55,10 +91,32 @@ definitions:
         type: string
       id:
         type: string
+      like_count:
+        type: string
       photos:
         items:
           type: string
         type: array
+    type: object
+  models.PostComment:
+    properties:
+      comment:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      like:
+        type: string
+      post_id:
+        type: string
+    type: object
+  models.PostLikes:
+    properties:
+      id:
+        type: string
     type: object
   models.UpdatePost:
     properties:
@@ -70,6 +128,15 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  models.UpdatePostComment:
+    properties:
+      comment:
+        type: string
+      id:
+        type: string
+      post_id:
+        type: string
     type: object
   models.User:
     properties:
@@ -166,6 +233,159 @@ paths:
       summary: Sign Up User
       tags:
       - auth
+  /comment_like:
+    delete:
+      consumes:
+      - application/json
+      description: DELETES comment BASED ON ID
+      parameters:
+      - description: comment data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteCommentLikeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: DELETE comment BY ID
+      tags:
+      - comment_like
+    post:
+      consumes:
+      - application/json
+      description: creates a new comment based on the given commentname and password
+      parameters:
+      - description: comment data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.CommentLikes'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: Creat new comment
+      tags:
+      - comment_like
+  /comment_like/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get comment by CommentLikeID
+      parameters:
+      - description: Like ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CommentLikes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET BY ID
+      tags:
+      - comment_like
+  /deleted_post_comments:
+    get:
+      consumes:
+      - application/json
+      description: get all post_comments based on limit, page and search by post_commentname
+      parameters:
+      - default: 10
+        description: limit
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllPostComment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET  ALL PostComments
+      tags:
+      - post_comment
   /deleted_posts:
     get:
       consumes:
@@ -287,6 +507,35 @@ paths:
       summary: GET BY ID
       tags:
       - post
+  /my/post_comment/{created_by}:
+    get:
+      consumes:
+      - application/json
+      description: get post_comment by ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllPostComment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET BY ID
+      tags:
+      - post_comment
   /post:
     delete:
       consumes:
@@ -480,6 +729,301 @@ paths:
       summary: GET BY ID
       tags:
       - post
+  /post_comment:
+    delete:
+      consumes:
+      - application/json
+      description: DELETES post_comment BASED ON ID
+      parameters:
+      - description: post_comment data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeletePostCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: DELETE post_comment BY ID
+      tags:
+      - post_comment
+    get:
+      consumes:
+      - application/json
+      description: get all post_comments based on limit, page and search by post_commentname
+      parameters:
+      - default: 10
+        description: limit
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 1
+        description: page
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetAllPostComment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET  ALL PostComments
+      tags:
+      - post_comment
+    post:
+      consumes:
+      - application/json
+      description: creates a new post_comment based on the given post_commentname
+        ad password
+      parameters:
+      - description: post_comment data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreatePostComment'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: Creat new post_comment
+      tags:
+      - post_comment
+    put:
+      consumes:
+      - application/json
+      description: UPDATES post_comment BASED ON GIVEN DATA AND ID
+      parameters:
+      - description: post_comment data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdatePostComment'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: UPDATE post_comment BY ID
+      tags:
+      - post_comment
+  /post_comment/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get post_comment by PostCommentID
+      parameters:
+      - description: post_comment ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PostComment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET BY ID
+      tags:
+      - post_comment
+  /post_like:
+    delete:
+      consumes:
+      - application/json
+      description: DELETES post BASED ON ID
+      parameters:
+      - description: post data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeletePostLikeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: DELETE post BY ID
+      tags:
+      - post_like
+    post:
+      consumes:
+      - application/json
+      description: creates a new post based on the given postname and password
+      parameters:
+      - description: post data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.PostLikes'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: Creat new post
+      tags:
+      - post_like
+  /post_like/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get post by PostLikeID
+      parameters:
+      - description: Like ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PostLikes'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResp'
+      security:
+      - ApiKeyAuth: []
+      summary: GET BY ID
+      tags:
+      - post_like
   /user:
     delete:
       consumes:

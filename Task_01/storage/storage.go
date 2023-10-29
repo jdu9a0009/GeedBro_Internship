@@ -11,6 +11,7 @@ type StorageI interface {
 	Post() PostI
 	PostComment() PostCommentI
 	PostLike() PostLikeI
+	CommentLike() CommentLikeI
 }
 type CacheI interface {
 	Cache() RedisI
@@ -42,6 +43,11 @@ type PostLikeI interface {
 	GetPostLikes(context.Context, *models.PostLikes) ([]models.PostLike, error)
 	DeletePostLike(context.Context, *models.DeletePostLikeRequest) (string, error)
 }
+type CommentLikeI interface {
+	CreateCommentLike(context.Context, *models.CommentLikes) (string, error)
+	GetCommentLikes(context.Context, *models.CommentLikes) ([]models.CommentLike, error)
+	DeleteCommentLike(context.Context, *models.DeleteCommentLikeRequest) (string, error)
+}
 
 type PostCommentI interface {
 	CreatePostComment(context.Context, *models.CreatePostComment) (string, error)
@@ -50,7 +56,7 @@ type PostCommentI interface {
 	UpdatePostComment(context.Context, *models.UpdatePostComment) (string, error)
 	DeletePostComment(context.Context, *models.DeletePostCommentRequest) (string, error)
 
-	GetMyPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
+	GetMyPostComment(context.Context, *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
 	GetAllDeletedPostComment(context.Context, *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error)
 }
 

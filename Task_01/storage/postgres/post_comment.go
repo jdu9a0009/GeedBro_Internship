@@ -24,32 +24,34 @@ func NewPostCommentRepo(db *pgxpool.Pool) *postCommentRepo {
 	}
 }
 
-func (u *postCommentRepo) CreatePostComment(ctx context.Context, req *models.CreatePostComment) (string, error) {
+func (r *postCommentRepo) CreatePostComment(ctx context.Context, req *models.CreatePostComment) (string, error) {
+	userInfo := ctx.Value("user_info").(helper.TokenInfo)
 	id := uuid.NewString()
-	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
-	query := `INSERT INTO post_comments(
-	                        id,
-							post_id,
-							comment,
-							created_by,
-							created_at)
-							VALUES($1, $2, $3,$4,now())`
+	query := `
+		INSERT INTO "post_comments" (
+			"id",
+			"post_id",
+			"comment",
+			"created_by",
+			"created_at"
+		)
+	VALUES ($1, $2, $3, $4, NOW())
+	`
 
-	_, err := u.db.Exec(ctx, query,
+	_, err := r.db.Exec(context.Background(), query,
 		id,
 		req.Post_id,
 		req.Comment,
-		TokenUser.UserID,
+		userInfo.UserID,
 	)
 
 	if err != nil {
-		return "Error CreatePostComment", err
+		return "", fmt.Errorf("failed to create comment: %v", err)
 	}
 
 	return id, nil
 }
-
 func (u postCommentRepo) GetPostComment(ctx context.Context, req *models.IdRequest) (rep *models.PostComment, err error) {
 	var (
 		createdAt sql.NullTime
@@ -144,8 +146,7 @@ func (u *postCommentRepo) GetAllPostComment(ctx context.Context, req *models.Get
 	resp.Count = count
 	return resp, nil
 }
-
-func (u *postRepo) GetMyPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error) {
+func (u *postCommentRepo) GetMyPostComment(ctx context.Context, req *models.GetAllPostCommentRequest) (*models.GetAllPostComment, error) {
 	TokenUser := ctx.Value("user_info").(helper.TokenInfo)
 
 	params := make(map[string]interface{})
@@ -219,7 +220,7 @@ func (u *postCommentRepo) GetAllDeletedPostComment(ctx context.Context, req *mod
 		created_at,
 		created_by
 	FROM
-		posts
+		post_comments
 		where deleted_at IS  NOT NULL`
 
 	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
@@ -265,9 +266,9 @@ func (u *postCommentRepo) UpdatePostComment(ctx context.Context, req *models.Upd
 			UPDATE "post_comments" 
 				SET 
 				"comment" = $1,
-				"updated_by"=$3,
+				"updated_by"=$2,
 				"updated_at" = NOW()
-				WHERE "id" = $4 `
+				WHERE "id" = $3 and deleted_at is null `
 
 	result, err := u.db.Exec(
 		context.Background(),

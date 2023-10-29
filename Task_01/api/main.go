@@ -44,14 +44,19 @@ func NewServer(h *handler.Handler) *gin.Engine {
 	r.GET("/post_like/:id", helper.AuthMiddleware, h.GetPostLike)
 	r.DELETE("/post_like", helper.AuthMiddleware, h.DeletePostLike)
 
+	//Commentlikes
+	r.POST("/comment_like", helper.AuthMiddleware, h.CreateCommentLike)
+	r.GET("/comment_like/:id", helper.AuthMiddleware, h.GetCommentLike)
+	r.DELETE("/comment_like", helper.AuthMiddleware, h.DeleteCommentLike)
+
 	//Post_Comments
-	r.POST("/post_comment", helper.AuthMiddleware, h.CreatePost)
-	r.GET("/post_comment/:id", helper.AuthMiddleware, h.GetPost)
-	r.GET("/post_comment", helper.AuthMiddleware, h.GetAllPost)
-	r.PUT("/post_comment", helper.AuthMiddleware, h.UpdatePost)
-	r.DELETE("/post_comment", helper.AuthMiddleware, h.DeletePost)
-	r.GET("/my/post_comment/:created_by", helper.AuthMiddleware, h.GetMyPost)
-	r.GET("/deleted_post_comments", helper.AuthMiddleware, h.GetAllDeletedPost)
+	r.POST("/post_comment", helper.AuthMiddleware, h.CreatePostComment)
+	r.GET("/post_comment/:id", helper.AuthMiddleware, h.GetPostComment)
+	r.GET("/post_comment", helper.AuthMiddleware, h.GetAllPostComment)
+	r.PUT("/post_comment", helper.AuthMiddleware, h.UpdatePostComment)
+	r.DELETE("/post_comment", helper.AuthMiddleware, h.DeletePostComment)
+	r.GET("/my/post_comment/:created_by", helper.AuthMiddleware, h.GetMyPostComment)
+	r.GET("/deleted_post_comments", helper.AuthMiddleware, h.GetAllDeletedPostComment)
 
 	url := ginSwagger.URL("swagger/doc.json") // The url pointing to API definition
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))

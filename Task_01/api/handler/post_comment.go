@@ -3,7 +3,6 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"user/api/handler/response"
 	"user/models"
 	"user/pkg/logger"
 
@@ -27,22 +26,27 @@ import (
 // @Failure      400  {object}  response.ErrorResp
 // @Failure      404  {object}  response.ErrorResp
 // @Failure      500  {object}  response.ErrorResp
-func (h *Handler) CreatePostComment(c *gin.Context) {
-	var post_comment models.CreatePostComment
-	fmt.Println("Before Handler", post_comment)
+func (h *Handler) CreatePostComment(ctx *gin.Context) {
+	var comment models.CreatePostComment
 
-	if err := c.ShouldBindJSON(&post_comment); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	fmt.Println("Befor bind: ", comment)
 
-	resp, err := h.storage.PostComment().CreatePostComment(c, &post_comment)
+	err := ctx.ShouldBindJSON(&comment)
 	if err != nil {
-		h.log.Error("error PostComment Create:", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, "internal server error")
+		h.log.Error("error while binding:", logger.Error(err))
+		ctx.JSON(http.StatusBadRequest, "invalid body")
 		return
 	}
-	c.JSON(http.StatusCreated, response.CreateResponse{Message: "Succesfully created", Id: resp})
+	fmt.Println("after bind: ", comment)
+
+	resp, err := h.storage.PostComment().CreatePostComment(ctx, &comment)
+	if err != nil {
+		fmt.Println("error comment create:", err.Error())
+		ctx.JSON(http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"message": "created", "id": resp})
 }
 
 // Get post_comment godoc
@@ -138,7 +142,6 @@ func (h *Handler) GetAllPostComment(c *gin.Context) {
 // @Tags         post_comment
 // @Accept       json
 // @Produce      json
-// @Param        id    path     string  true  "id of post_comment" format(uuid)
 // @Param        data  body      models.UpdatePostComment true  "post_comment data"
 // @Success      200  {string}  string
 // @Failure      400  {object}  response.ErrorResp

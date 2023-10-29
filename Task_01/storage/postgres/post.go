@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"strconv"
 
 	"database/sql"
 	"fmt"
@@ -54,21 +55,23 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
 	var (
 		createdAt sql.NullTime
 		createdBy sql.NullString
+		likeCount sql.NullInt32
 	)
 
 	query := `
-    SELECT 
-            p.id, 
-            p.description,
-            p.photos,
-            p.created_at,
-            p.created_by,
-      
-      (SELECT COUNT(*) FROM post_likes l 
-	  WHERE  deleted_at is null and
-	  l.post_id = p.id) AS like_count
-    FROM posts p 
-    WHERE p.id = $1
+	SELECT 
+             p.id, 
+			 p.description,
+			 p.photos,
+			 p.created_at,
+			 p.created_by,
+    (SELECT COUNT(*) FROM post_likes l 
+	        WHERE deleted_at IS NULL AND
+			l.post_id = p.id) AS like_counts
+FROM posts p 
+WHERE
+			p."deleted_at" IS NULL
+			AND p."id" = $1
   `
 
 	post := models.Post{}
@@ -79,23 +82,26 @@ func (u postRepo) GetPost(ctx context.Context, req *models.IdRequest) (rep *mode
 		&post.Photos,
 		&createdAt,
 		&createdBy,
-		&post.LikeCount,
+		&likeCount,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Post not found")
 	}
 	post.CreatedAt = createdAt.Time.Format(time.RFC3339)
 	post.CreatedBy = createdBy.String
-
+	if likeCount.Valid {
+		post.LikeCount = strconv.Itoa(int(likeCount.Int32))
+	}
 	return &post, nil
 }
 
 func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest) (*models.GetAllPost, error) {
 	params := make(map[string]interface{})
-	filter := "deleted_at is null"
+	filter := ` WHERE deleted_at IS NULL `
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
 	createdBy := sql.NullString{}
+	likeCount := sql.NullInt32{}
 
 	s := `
 	SELECT 
@@ -103,13 +109,11 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 		description,
 		photos,
 		created_at,
-		created_by
-		(SELECT COUNT(*) FROM post_likes 
-		l WHERE  deleted_at is null and
-		l.post_id = p.id) AS like_count
-		FROM posts p 
-		WHERE  deleted_at is null and p.id = $1
-	`
+		created_by,
+		(SELECT COUNT(*) FROM post_likes l
+		WHERE 	l.post_id = p.id) AS like_count
+	FROM posts p 
+`
 
 	if req.Search != "" {
 		filter += ` AND description ILIKE '%' || :search || '%' `
@@ -118,7 +122,7 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 
 	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
 	offsetQ := fmt.Sprintf(" OFFSET %d", offset)
-	query := s + filter + limit + offsetQ
+	query := s + " " + filter + " " + limit + " " + offsetQ
 
 	q, pArr := helper.ReplaceQueryParams(query, params)
 	rows, err := u.db.Query(ctx, q, pArr...)
@@ -138,7 +142,7 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 			&post.Photos,
 			&createdAt,
 			&createdBy,
-			&post.LikeCount,
+			&likeCount,
 		)
 		if err != nil {
 			return nil, err
@@ -148,7 +152,9 @@ func (u *postRepo) GetAllPost(ctx context.Context, req *models.GetAllPostRequest
 		if createdBy.Valid {
 			post.CreatedBy = createdBy.String
 		}
-
+		if likeCount.Valid {
+			post.LikeCount = strconv.Itoa(int(likeCount.Int32))
+		}
 		resp.Posts = append(resp.Posts, post)
 	}
 
@@ -163,7 +169,8 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 	filter := fmt.Sprintf(`deleted_at IS NULL AND created_by = '%s'`, TokenUser.UserID)
 	offset := (req.Page - 1) * req.Limit
 	createdAt := time.Time{}
-	fmt.Println(req)
+	likeCount := sql.NullInt32{}
+
 	s := `
 	SELECT 
 		id,
@@ -171,20 +178,10 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 		photos,
 		created_at,
 		created_by,
-	
 		(SELECT COUNT(*) FROM post_likes l
 		 WHERE deleted_at is null and
 		  l.post_id = p.id) AS like_count
-		FROM posts p 
-		WHERE deleted_at is null and
-		 p.id = $1 `
-
-	if req.Search != "" {
-		filter += ` AND created_by = :search`
-		params["search"] = req.Search
-	}
-
-	fmt.Println(s)
+		FROM posts p `
 
 	limit := fmt.Sprintf(" LIMIT %d", req.Limit)
 	offsetQ := fmt.Sprintf(" OFFSET %d", offset)
@@ -207,13 +204,15 @@ func (u *postRepo) GetMyPost(ctx context.Context, req *models.GetAllPostRequest)
 			&post.Photos,
 			&createdAt,
 			&TokenUser.UserID,
-			&post.LikeCount,
+			&likeCount,
 		)
 		if err != nil {
 			return nil, err
 		}
 		post.CreatedAt = createdAt.Format(time.RFC3339)
-
+		if likeCount.Valid {
+			post.LikeCount = strconv.Itoa(int(likeCount.Int32))
+		}
 		resp.Posts = append(resp.Posts, post)
 	}
 
